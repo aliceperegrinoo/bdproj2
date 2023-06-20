@@ -17,9 +17,6 @@ class Database:
         self.active_transactions = []
         self.consolidated_transactions = []
         self.aborted_transactions = []
-
-    def create_transaction(self, T):
-        self.cache_log.append(T.start())
     
     def get_checkpoint(self, *T):
         ids = ['T'+tr.id for tr in T]

@@ -1,4 +1,5 @@
 import sys
+import time
 from PyQt5.QtWidgets import QLineEdit, QComboBox, QApplication, QMainWindow, QVBoxLayout, QWidget, QPushButton, QTextEdit, QTableWidget, QTableWidgetItem, QLabel, QGridLayout, QRadioButton
 from PyQt5.QtCore import Qt
 
@@ -16,8 +17,8 @@ class RecoveryInterface(QMainWindow):
         # Variáveis do SGBD
         self.transaction_id = 0
         self.db = Database(data={'x': "2", 'y': "5", "z": "10"})
-        self.log_memory = self.db.cache_log
-        self.log_disk = self.db.disk_log
+        self.log_memory = []
+        self.log_disk = []
 
         # Botões de operações
         self.btn_start_transaction = QPushButton("Iniciar Transação", self)
@@ -30,7 +31,9 @@ class RecoveryInterface(QMainWindow):
 
         # Radio buttons para selecionar o read/write
         self.radio_read = QRadioButton("Read", self)
+        self.radio_read.setEnabled(False)
         self.radio_write = QRadioButton("Write", self)
+        self.radio_write.setEnabled(False)
 
         # Radio buttons para selecionar o algoritmo de recuperação
         self.radio_undo_no_redo = QRadioButton("UNDO/NO-REDO", self)
@@ -61,23 +64,27 @@ class RecoveryInterface(QMainWindow):
         self.db_table.setHorizontalHeaderLabels(["Item", "Valor"])
 
         # Dropdown para exibir item de dados
-        combobox_read = QComboBox(self)
-        combobox_write = QComboBox(self)
-        for k in self.db.data.keys():
-            combobox_read.addItem(k)
-            combobox_write.addItem(k)
+        self.dict_dropdown = {}
+
+        self.combobox_read = QComboBox(self)
+        self.combobox_write = QComboBox(self)
+        for i, k in enumerate(self.db.data.keys()):
+            self.combobox_read.addItem(k)
+            self.combobox_write.addItem(k)
+
+            self.dict_dropdown[k] = i
 
         # Text box para adicionar novo valor ao item de dados
-        self.textbox = QLineEdit("Novo valor", self)
+        self.textbox = QLineEdit(self)
         self.textbox.setFixedWidth(120)
 
         # Layout
         layout = QGridLayout()
         # layout.addWidget(self.transaction_labels, 0, 0)
         layout.addWidget(self.radio_read, 1, 0)
-        layout.addWidget(combobox_read, 2, 0)
+        layout.addWidget(self.combobox_read, 2, 0)
         layout.addWidget(self.radio_write, 3, 0)
-        layout.addWidget(combobox_write, 4, 0)
+        layout.addWidget(self.combobox_write, 4, 0)
         layout.addWidget(self.textbox, 5, 0)
         layout.addWidget(self.btn_start_transaction, 6, 0)
         layout.addWidget(self.btn_fail, 7, 0)
@@ -101,7 +108,7 @@ class RecoveryInterface(QMainWindow):
         self.setCentralWidget(widget)
 
         # Preencher a tabela com os dados do banco de dados
-        self.update_db_table()
+        self.create_db_table()
 
         # Conectar sinais aos slots
         self.btn_start_transaction.clicked.connect(self.start_transaction)
@@ -113,38 +120,45 @@ class RecoveryInterface(QMainWindow):
         self.btn_commit.clicked.connect(self.perform_commit)
         self.btn_finish_transaction.clicked.connect(self.finish_transaction)
         self.btn_recover.clicked.connect(self.recover)
+        self.radio_undo_redo.clicked.connect(self.undoredo_recovery)
+        self.radio_undo_no_redo.clicked.connect(self.undonoredo_recovery)
+        
+    def undoredo_recovery(self):
+        UndoRedoRecovery.RM_Restart()
+
+    def undonoredo_recovery(self):
+        UndoNoRedoRecovery.RM_Restart()
 
     def perform_read(self):
-        current_row = self.db_table.currentRow()
-        if current_row >= 0:
-            item = self.db_table.item(current_row, 0).text()
-            value = self.db[item]
-            self.log_memory.append(f"READ {item}: {value}")
-            self.log_memory_display.append(f"READ {item}: {value}")
+        data_item = str(self.combobox_read.currentText())
+        log = UndoRedoRecovery.RM_Read(self, self.transaction, data_item)
+        self.log_memory.append(log)
+        self.log_memory_display.append(log)
+
+        self.radio_write.setEnabled(True)
 
     def perform_write(self):
-        current_row = self.db_table.currentRow()
-        if current_row >= 0:
-            item = self.db_table.item(current_row, 0).text()
-            value = self.db_table.item(current_row, 1).text()
-            self.db[item] = value
-            self.log_memory.append(f"WRITE {item}: {value}")
-            self.log_memory_display.append(f"WRITE {item}: {value}")
+        data_item = str(self.combobox_write.currentText())
+        new_value = str(self.textbox.text())
+        log = UndoRedoRecovery.RM_Write(self, self.transaction, data_item, new_value)
+        self.log_memory.append(log)
+        self.log_memory_display.append(log)
+        time.sleep(0.1)
 
-    def create_transaction(self):
-        self.transaction_id += 1
-        self.transaction = Transaction(self.db, self.transaction_id, ['write_item'], 'x')
-        self.log_memory.append(f"CREATE TRANSACTION {self.transaction_id}")
-        self.log_memory_display.append(self.transaction.start())
-        self.btn_start_transaction.clicked.connect(self.transaction.start())
+        self.radio_read.setEnabled(False)
+        self.update_db_table(self.dict_dropdown[data_item], new_value)
 
     def start_transaction(self):
-        self.log_memory.append(f"START TRANSACTION {self.transaction_id}")
-        self.log_memory_display.append(f"START TRANSACTION {self.transaction_id}")
-
+        self.transaction_id += 1
+        self.transaction = Transaction(self.db, self.transaction_id)
+        log = f'start, T{self.transaction_id}'
+        self.log_memory.append(log)
+        self.log_memory_display.append(log)
+        self.radio_read.setEnabled(True)
+        
     def perform_fail(self):
-        self.log_memory.append("FAIL")
-        self.log_memory_display.append("FAIL")
+        self.log_memory = []
+        self.log_memory_display = []
 
     def perform_checkpoint(self):
         self.log_disk.extend(self.log_memory)
@@ -178,7 +192,7 @@ class RecoveryInterface(QMainWindow):
         self.log_memory.append(f"RECOVER using {selected_algorithm}")
         self.log_memory_display.append(f"RECOVER using {selected_algorithm}")
 
-    def update_db_table(self):
+    def create_db_table(self):
         self.db_table.setRowCount(len(self.db.data))
         row = 0
         for item, value in self.db.data.items():
@@ -188,6 +202,10 @@ class RecoveryInterface(QMainWindow):
             self.db_table.setItem(row, 0, item_widget)
             self.db_table.setItem(row, 1, value_widget)
             row += 1
+
+    def update_db_table(self, row, value, column=1):
+        item = QTableWidgetItem(str(value))
+        self.db_table.setItem(row, column, item)
 
 if __name__ == "__main__":
     app = QApplication(sys.argv)

@@ -16,14 +16,12 @@ class UndoRedoRecovery:
         self.db = db
 
     def RM_Read(self, T, data_item):
-        self.db.att_cache_log(f'read_item, T{T.id}, {data_item}, {self.db.data[data_item]}')
+        return f'read_item, T{T.id}, {data_item}, {self.db.data[data_item]}'
     
     def RM_Write(self, T, data_item, new_value):
-        self.db.add_active_transactions_list(T)
-        self.RM_Read(T, data_item)
         old_value = self.db.data[data_item]
         self.db.data[data_item] = new_value
-        self.db.att_cache_log(f'write_item, T{T.id}, {data_item}, {old_value}, {new_value}')
+        return f'write_item, T{T.id}, {data_item}, {old_value}, {new_value}'
     
     def RM_Commit(self, T):
         self.db.att_cache_log(f'commit, T{T.id}')

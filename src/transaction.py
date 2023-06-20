@@ -1,6 +1,7 @@
 class Transaction:
-    def __init__(self, db, id, steps, data_item):
+    def __init__(self, db, id):
         self.db = db
         self.id = id
-        self.steps = steps
-        self.data_item = data_item
+
+    def start_transaction(self, T):
+        return f'start, T{T.id}'
