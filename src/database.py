@@ -12,8 +12,8 @@ from .recovery.undonoredo import UndoNoRedoRecovery
 class Database:
     def __init__(self, data):
         self.data = data
-        self.cache_log = []
-        self.disk_log = []
+        self.cache_log = {}
+        self.disk_log = {}
         self.active_transactions = []
         self.consolidated_transactions = []
         self.aborted_transactions = []

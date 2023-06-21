@@ -19,6 +19,8 @@ class RecoveryInterface(QMainWindow):
         self.db = Database(data={'x': "2", 'y': "5", "z": "10"})
         self.log_memory = []
         self.log_disk = []
+        self.recovery_mode = self.recover()
+        self.transactions = []
 
         # Botões de operações
         self.btn_start_transaction = QPushButton("Iniciar Transação", self)
@@ -74,6 +76,9 @@ class RecoveryInterface(QMainWindow):
 
             self.dict_dropdown[k] = i
 
+        # Dropdown para exibir transações disponíveis
+        self.combobox_transactions = QComboBox(self)
+
         # Text box para adicionar novo valor ao item de dados
         self.textbox = QLineEdit(self)
         self.textbox.setFixedWidth(120)
@@ -120,18 +125,21 @@ class RecoveryInterface(QMainWindow):
         self.btn_commit.clicked.connect(self.perform_commit)
         self.btn_finish_transaction.clicked.connect(self.finish_transaction)
         self.btn_recover.clicked.connect(self.recover)
-        self.radio_undo_redo.clicked.connect(self.undoredo_recovery)
-        self.radio_undo_no_redo.clicked.connect(self.undonoredo_recovery)
+        # self.radio_undo_redo.clicked.connect(self.undoredo_recovery)
+        # self.radio_undo_no_redo.clicked.connect(self.undonoredo_recovery)
         
-    def undoredo_recovery(self):
-        UndoRedoRecovery.RM_Restart()
+    def recover(self):
+        if self.radio_undo_no_redo.isChecked():
+            return UndoNoRedoRecovery
+        elif self.radio_undo_redo.isChecked():
+            return UndoRedoRecovery
 
-    def undonoredo_recovery(self):
-        UndoNoRedoRecovery.RM_Restart()
+    def start_recovery(self):
+        self.recovery_mode.RM_Restart()
 
     def perform_read(self):
         data_item = str(self.combobox_read.currentText())
-        log = UndoRedoRecovery.RM_Read(self, self.transaction, data_item)
+        log = self.recovery_mode.RM_Read(self, self.transaction, data_item)
         self.log_memory.append(log)
         self.log_memory_display.append(log)
 
@@ -140,7 +148,7 @@ class RecoveryInterface(QMainWindow):
     def perform_write(self):
         data_item = str(self.combobox_write.currentText())
         new_value = str(self.textbox.text())
-        log = UndoRedoRecovery.RM_Write(self, self.transaction, data_item, new_value)
+        log = self.recovery_mode.RM_Write(self, self.transaction, data_item, new_value)
         self.log_memory.append(log)
         self.log_memory_display.append(log)
         time.sleep(0.1)
@@ -151,10 +159,17 @@ class RecoveryInterface(QMainWindow):
     def start_transaction(self):
         self.transaction_id += 1
         self.transaction = Transaction(self.db, self.transaction_id)
+        self.transactions.append(self.transaction)
+        self.db.add_active_transactions_list(self.transaction)
+        self.update_dropdown_transactions()
         log = f'start, T{self.transaction_id}'
         self.log_memory.append(log)
         self.log_memory_display.append(log)
         self.radio_read.setEnabled(True)
+
+    def update_dropdown_transactions(self):
+        for transaction in self.transactions:
+            self.combobox_transactions.addItem(transaction)
         
     def perform_fail(self):
         self.log_memory = []
@@ -169,28 +184,19 @@ class RecoveryInterface(QMainWindow):
             self.log_disk_display.append(log)
 
     def perform_abort(self):
-        self.log_memory.append(f"ABORT TRANSACTION {self.transaction_id}")
-        self.log_memory_display.append(f"ABORT TRANSACTION {self.transaction_id}")
-        self.transaction_id = 0
+        self.recovery_mode.RM_Abort(self.transaction, T)
 
     def perform_commit(self):
-        self.log_memory.append(f"COMMIT TRANSACTION {self.transaction_id}")
-        self.log_memory_display.append(f"COMMIT TRANSACTION {self.transaction_id}")
-        self.transaction_id = 0
+        log = self.recovery_mode.RM_Commit(self, self.transaction)
+        self.log_memory.append(log)
+        self.log_disk.append(log)
+        self.log_memory_display.append(log)
+        self.log_disk_display.append(log)
 
     def finish_transaction(self):
         self.log_memory.append(f"FINISH TRANSACTION {self.transaction_id}")
         self.log_memory_display.append(f"FINISH TRANSACTION {self.transaction_id}")
         self.transaction_id = 0
-
-    def recover(self):
-        selected_algorithm = ""
-        if self.radio_undo_no_redo.isChecked():
-            selected_algorithm = "UNDO/NO-REDO"
-        elif self.radio_undo_redo.isChecked():
-            selected_algorithm = "UNDO/REDO"
-        self.log_memory.append(f"RECOVER using {selected_algorithm}")
-        self.log_memory_display.append(f"RECOVER using {selected_algorithm}")
 
     def create_db_table(self):
         self.db_table.setRowCount(len(self.db.data))
