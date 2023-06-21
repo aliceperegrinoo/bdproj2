@@ -19,7 +19,7 @@ class RecoveryInterface(QMainWindow):
         self.db = Database(data={'x': "2", 'y': "5", "z": "10"})
         self.log_memory = []
         self.log_disk = []
-        self.recovery_mode = self.recover()
+        self.recovery_mode = UndoRedoRecovery
         self.transactions = []
 
         # Botões de operações
@@ -94,18 +94,19 @@ class RecoveryInterface(QMainWindow):
         layout.addWidget(self.btn_start_transaction, 6, 0)
         layout.addWidget(self.btn_fail, 7, 0)
         layout.addWidget(self.btn_checkpoint, 8, 0)
-        layout.addWidget(self.btn_abort, 9, 0)
-        layout.addWidget(self.btn_commit, 10, 0)
-        layout.addWidget(self.btn_finish_transaction, 11, 0)
-        layout.addWidget(self.radio_undo_no_redo, 12, 0)
-        layout.addWidget(self.radio_undo_redo, 13, 0)
-        layout.addWidget(self.btn_recover, 14, 0)
+        layout.addWidget(self.combobox_transactions, 9, 0)        
+        layout.addWidget(self.btn_abort, 10, 0)
+        layout.addWidget(self.btn_commit, 11, 0)
+        layout.addWidget(self.btn_finish_transaction, 12, 0)
+        layout.addWidget(self.radio_undo_no_redo, 13, 0)
+        layout.addWidget(self.radio_undo_redo, 14, 0)
+        layout.addWidget(self.btn_recover, 15, 0)
         # layout.addWidget(self.log_memory_label, 0, 1)
         layout.addWidget(self.log_memory_display, 2, 1, 4, 1)
         layout.addWidget(self.log_disk_label, 7, 1)
         layout.addWidget(self.log_disk_display, 8, 1, 4, 1)
-        layout.addWidget(self.db_table_label, 13, 1)
-        layout.addWidget(self.db_table, 14, 1, 2, 1)
+        layout.addWidget(self.db_table_label, 14, 1)
+        layout.addWidget(self.db_table, 15, 1, 2, 1)
 
         # Widget principal
         widget = QWidget()
@@ -124,15 +125,15 @@ class RecoveryInterface(QMainWindow):
         self.btn_abort.clicked.connect(self.perform_abort)
         self.btn_commit.clicked.connect(self.perform_commit)
         self.btn_finish_transaction.clicked.connect(self.finish_transaction)
-        self.btn_recover.clicked.connect(self.recover)
+        # self.btn_recover.clicked.connect(self.recover)
         # self.radio_undo_redo.clicked.connect(self.undoredo_recovery)
         # self.radio_undo_no_redo.clicked.connect(self.undonoredo_recovery)
         
-    def recover(self):
-        if self.radio_undo_no_redo.isChecked():
-            return UndoNoRedoRecovery
-        elif self.radio_undo_redo.isChecked():
-            return UndoRedoRecovery
+    # def recover(self):
+    #     if self.radio_undo_no_redo.isChecked():
+    #         return UndoNoRedoRecovery
+    #     elif self.radio_undo_redo.isChecked():
+    #         return UndoRedoRecovery
 
     def start_recovery(self):
         self.recovery_mode.RM_Restart()
