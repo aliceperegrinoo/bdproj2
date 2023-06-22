@@ -21,10 +21,10 @@ class UndoRedoRecovery:
         return log
     
     def RM_Write(self, T, data_item, new_value):
-        log = f'write_item, T{T.id}, {data_item}, {old_value}, {new_value}'
-        self.db.att_cache_log(log)
         old_value = self.db.data[data_item]
         self.db.data[data_item] = new_value
+        log = f'write_item, T{T.id}, {data_item}, {old_value}, {new_value}'
+        self.db.att_cache_log(log)
         return log
     
     def RM_Commit(self, T):

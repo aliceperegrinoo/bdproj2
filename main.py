@@ -19,7 +19,8 @@ class RecoveryInterface(QMainWindow):
         self.db = Database(data={'x': "2", 'y': "5", "z": "10"})
         self.log_memory = []
         self.log_disk = []
-        self.recovery_mode = UndoRedoRecovery
+        self.recovery_mode = ""
+        self.transaction = ""      
         self.transactions = []
 
         # Botões de operações
@@ -41,9 +42,16 @@ class RecoveryInterface(QMainWindow):
         self.radio_undo_no_redo = QRadioButton("UNDO/NO-REDO", self)
         self.radio_undo_redo = QRadioButton("UNDO/REDO", self)
 
-        # # Título barra lateral
-        # self.transaction_labels = QLabel("Criar transação", self)
-        # self.transaction_labels.setAlignment(Qt.AlignCenter)
+        # Titulo algoritmo recuperação
+        self.recovery_label = QLabel("Algoritmo de recuperação")
+        self.recovery_label.setContentsMargins(0, 0, 0, 0)
+        self.recovery_label.setFixedWidth(150)
+        self.recovery_label.setWordWrap(True)
+
+        self.data_item_label = QLabel("Selecione o item de dado:")
+        self.data_item_label.setContentsMargins(0, 0, 0, 0)
+        self.data_item_label.setFixedWidth(150)
+        self.data_item_label.setWordWrap(True)
 
         # Área de texto para exibir o log de memória
         self.log_memory_label = QLabel("Log da Cache", self)
@@ -68,11 +76,9 @@ class RecoveryInterface(QMainWindow):
         # Dropdown para exibir item de dados
         self.dict_dropdown = {}
 
-        self.combobox_read = QComboBox(self)
-        self.combobox_write = QComboBox(self)
+        self.combobox_dataitem = QComboBox(self)
         for i, k in enumerate(self.db.data.keys()):
-            self.combobox_read.addItem(k)
-            self.combobox_write.addItem(k)
+            self.combobox_dataitem.addItem(k)
 
             self.dict_dropdown[k] = i
 
@@ -81,30 +87,30 @@ class RecoveryInterface(QMainWindow):
 
         # Text box para adicionar novo valor ao item de dados
         self.textbox = QLineEdit(self)
-        self.textbox.setFixedWidth(120)
+        self.textbox.setFixedWidth(150)
 
         # Layout
         layout = QGridLayout()
-        # layout.addWidget(self.transaction_labels, 0, 0)
-        layout.addWidget(self.radio_read, 1, 0)
-        layout.addWidget(self.combobox_read, 2, 0)
-        layout.addWidget(self.radio_write, 3, 0)
-        layout.addWidget(self.combobox_write, 4, 0)
-        layout.addWidget(self.textbox, 5, 0)
-        layout.addWidget(self.btn_start_transaction, 6, 0)
-        layout.addWidget(self.btn_fail, 7, 0)
-        layout.addWidget(self.btn_checkpoint, 8, 0)
-        layout.addWidget(self.combobox_transactions, 9, 0)        
-        layout.addWidget(self.btn_abort, 10, 0)
-        layout.addWidget(self.btn_commit, 11, 0)
-        layout.addWidget(self.btn_finish_transaction, 12, 0)
-        layout.addWidget(self.radio_undo_no_redo, 13, 0)
-        layout.addWidget(self.radio_undo_redo, 14, 0)
+        layout.addWidget(self.recovery_label, 0, 0)
+        layout.addWidget(self.radio_undo_no_redo, 1, 0)
+        layout.addWidget(self.radio_undo_redo, 2, 0)
+        layout.addWidget(self.data_item_label, 3, 0)
+        layout.addWidget(self.combobox_dataitem, 4, 0)
+        layout.addWidget(self.btn_start_transaction, 5, 0)
+        layout.addWidget(self.radio_read, 6, 0)
+        layout.addWidget(self.radio_write, 7, 0)
+        layout.addWidget(self.textbox, 8, 0)
+        layout.addWidget(self.btn_fail, 9, 0)
+        layout.addWidget(self.btn_checkpoint, 10, 0)
+        layout.addWidget(self.combobox_transactions, 11, 0)        
+        layout.addWidget(self.btn_abort, 12, 0)
+        layout.addWidget(self.btn_commit, 13, 0)
+        layout.addWidget(self.btn_finish_transaction, 14, 0)
         layout.addWidget(self.btn_recover, 15, 0)
-        # layout.addWidget(self.log_memory_label, 0, 1)
-        layout.addWidget(self.log_memory_display, 2, 1, 4, 1)
-        layout.addWidget(self.log_disk_label, 7, 1)
-        layout.addWidget(self.log_disk_display, 8, 1, 4, 1)
+        layout.addWidget(self.log_memory_label, 0, 1, 4, 1)
+        layout.addWidget(self.log_memory_display, 1, 1, 4, 1)
+        layout.addWidget(self.log_disk_label, 6, 1)
+        layout.addWidget(self.log_disk_display, 7, 1, 4, 1)
         layout.addWidget(self.db_table_label, 14, 1)
         layout.addWidget(self.db_table, 15, 1, 2, 1)
 
@@ -126,51 +132,72 @@ class RecoveryInterface(QMainWindow):
         self.btn_commit.clicked.connect(self.perform_commit)
         self.btn_finish_transaction.clicked.connect(self.finish_transaction)
         # self.btn_recover.clicked.connect(self.recover)
-        # self.radio_undo_redo.clicked.connect(self.undoredo_recovery)
-        # self.radio_undo_no_redo.clicked.connect(self.undonoredo_recovery)
+        self.radio_undo_redo.clicked.connect(self.undoredo_recovery)
+        self.radio_undo_no_redo.clicked.connect(self.undonoredo_recovery)
         
-    # def recover(self):
-    #     if self.radio_undo_no_redo.isChecked():
-    #         return UndoNoRedoRecovery
-    #     elif self.radio_undo_redo.isChecked():
-    #         return UndoRedoRecovery
+    def undoredo_recovery(self):
+        self.recovery_mode = UndoRedoRecovery(self.db)
+
+    def undonoredo_recovery(self):
+        self.recovery_mode = UndoNoRedoRecovery(self.db)
 
     def start_recovery(self):
         self.recovery_mode.RM_Restart()
 
     def perform_read(self):
-        data_item = str(self.combobox_read.currentText())
-        log = self.recovery_mode.RM_Read(self, self.transaction, data_item)
-        self.log_memory.append(log)
-        self.log_memory_display.append(log)
+        data_item = str(self.combobox_dataitem.currentText())
+        log = self.recovery_mode.RM_Read(self.transaction, data_item)
 
+        if self.recovery_mode.name == 'UndoNoRedoRecovery':
+            # self.log_memory.append(log)
+            self.log_memory_display.append(log)
+            self.log_disk_display.append(log)
+        if self.recovery_mode.name == 'UndoRedoRecovery':
+            self.log_memory_display.append(log)
+
+        self.transaction.steps.append('read_item')
+
+        time.sleep(0.1)  
         self.radio_write.setEnabled(True)
 
     def perform_write(self):
-        data_item = str(self.combobox_write.currentText())
+        data_item = str(self.combobox_dataitem.currentText())
         new_value = str(self.textbox.text())
-        log = self.recovery_mode.RM_Write(self, self.transaction, data_item, new_value)
-        self.log_memory.append(log)
-        self.log_memory_display.append(log)
-        time.sleep(0.1)
+        log = self.recovery_mode.RM_Write(self.transaction, data_item, new_value)
 
+        if self.recovery_mode.name == 'UndoNoRedoRecovery':
+            self.log_memory_display.append(log)
+            self.log_disk_display.append(log)
+            self.update_db_table(self.dict_dropdown[data_item], new_value)
+        if self.recovery_mode.name == 'UndoRedoRecovery':
+            self.log_memory_display.append(log)
+
+        self.transaction.steps.append('write_item')
+
+        time.sleep(0.1)
         self.radio_read.setEnabled(False)
-        self.update_db_table(self.dict_dropdown[data_item], new_value)
+        self.btn_commit.setEnabled(True)
 
     def start_transaction(self):
         self.transaction_id += 1
-        self.transaction = Transaction(self.db, self.transaction_id)
+        data_item = str(self.combobox_dataitem.currentText())
+        self.transaction = Transaction(self.db, self.transaction_id, data_item)
         self.transactions.append(self.transaction)
         self.db.add_active_transactions_list(self.transaction)
         self.update_dropdown_transactions()
         log = f'start, T{self.transaction_id}'
-        self.log_memory.append(log)
+        self.transaction.steps.append('start')
         self.log_memory_display.append(log)
+        self.log_disk_display.append(log)
         self.radio_read.setEnabled(True)
 
+        if self.recovery_mode.name == 'UndoNoRedoRecovery':
+            self.btn_commit.setEnabled(False)
+
     def update_dropdown_transactions(self):
+        self.combobox_transactions.clear()
         for transaction in self.transactions:
-            self.combobox_transactions.addItem(transaction)
+            self.combobox_transactions.addItem(f'T{transaction.id}')
         
     def perform_fail(self):
         self.log_memory = []
@@ -178,19 +205,26 @@ class RecoveryInterface(QMainWindow):
 
     def perform_checkpoint(self):
         self.log_disk.extend(self.log_memory)
-        self.log_memory = []
         self.log_memory_display.clear()
         self.log_disk_display.clear()
-        for log in self.log_disk:
+        for log in self.db.disk_log:
             self.log_disk_display.append(log)
 
     def perform_abort(self):
-        self.recovery_mode.RM_Abort(self.transaction, T)
+        logs = self.recovery_mode.RM_Abort(self.transaction)
+        for log in logs:
+            self.log_memory_display.append(log)
+            time.sleep(1)
+            self.log_disk_display.append(log)
+
+        if 'write_item' in self.transaction.steps:
+            filtered_logs = [log for log in logs if log.split(', ')[0] == 'write_item' and log.split(', ')[1] == f'T{self.transaction.id}']
+            data_item = self.transaction.data_item
+            new_value = filtered_logs[0].split(', ')[-1]
+            self.update_db_table(self.dict_dropdown[data_item], new_value)
 
     def perform_commit(self):
-        log = self.recovery_mode.RM_Commit(self, self.transaction)
-        self.log_memory.append(log)
-        self.log_disk.append(log)
+        log = self.recovery_mode.RM_Commit(self.transaction)
         self.log_memory_display.append(log)
         self.log_disk_display.append(log)
 

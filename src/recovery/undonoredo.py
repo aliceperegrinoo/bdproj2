@@ -12,35 +12,49 @@
 ### liberar a partição de x
 
 class UndoNoRedoRecovery:
+    name = 'UndoNoRedoRecovery'
+
     def __init__(self, db):
         self.db = db
 
     def RM_Read(self, T, data_item):
-        self.db.att_cache_log(f'read_item, T{T.id}, {data_item}, {self.db.data[data_item]}')
-        self.db.att_disk_log(f'read_item, T{T.id}, {data_item}, {self.db.data[data_item]}')
+        log = f'read_item, T{T.id}, {data_item}, {self.db.data[data_item]}'
+        self.db.att_cache_log(log)
+        self.db.att_disk_log(log)
+        return log
 
     def RM_Write(self, T, data_item, new_value):
-        self.db.add_active_transactions_list(T)
-        self.RM_Read(T, data_item)
         old_value = self.db.data[data_item]
         self.db.data[data_item] = new_value
-        self.db.att_cache_log(f'write_item, T{T.id}, {data_item}, {old_value}, {new_value}')
-        self.db.att_disk_log(f'write_item, T{T.id}, {data_item}, {old_value}, {new_value}')
+        log = f'write_item, T{T.id}, {data_item}, {old_value}, {new_value}'
+        self.db.att_cache_log(log)
+        self.db.att_disk_log(log)
+        return log
     
     def RM_Commit(self, T):
-        self.db.att_cache_log(f'commit, T{T.id}')
-        self.db.att_disk_log(f'commit, T{T.id}')
+        log = f'commit, T{T.id}'
+        self.db.att_cache_log(log)
         self.db.add_consolidated_transactions_list(T)
         self.db.remove_active_transactions_list(T)
+        return log
     
     def RM_Abort(self, T):
+        logs = []
+        log = f'aborted, T{T.id}'
+        logs.append(log)
+        self.db.att_cache_log(log)
+        self.db.att_disk_log(log)
+        if ('start' in T.steps) & ('read_item' not in T.steps):
+            data_item = T.data_item
+            logs.append(self.RM_Read(T, data_item))
         if 'write_item' in T.steps:
             filtered_log = [log for log in self.db.cache_log if log.split(', ')[0] == 'write_item' and log.split(', ')[1] == f'T{T.id}']
             ImAn = filtered_log[0].split(', ')[-2]
             data_item = filtered_log[0].split(', ')[-3]
-            self.RM_Write(T, data_item, ImAn)
-        self.db.add_aborted_transactions_list(T)
-        self.db.remove_active_transactions_list(T)
+            logs.append(self.RM_Write(T, data_item, ImAn))
+            self.db.add_aborted_transactions_list(T)
+            self.db.remove_active_transactions_list(T)
+        return logs
     
     def _undo(self, T):
         filtered_logs = [log for log in self.db.disk_log if f'T{T.id}' == log.split(', ')[1]]
