@@ -12,6 +12,8 @@
 ### liberar a partição de x
 
 class UndoRedoRecovery:
+    name = 'UndoRedoRecovery'
+    
     def __init__(self, db):
         self.db = db
 

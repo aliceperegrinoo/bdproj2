@@ -48,6 +48,7 @@ class UndoNoRedoRecovery:
             data_item = T.data_item
             logs.append(self.RM_Read(T, data_item))
         if 'write_item' in T.steps:
+            print(T.steps)
             filtered_log = [log for log in self.db.cache_log if log.split(', ')[0] == 'write_item' and log.split(', ')[1] == f'T{T.id}']
             ImAn = filtered_log[0].split(', ')[-2]
             data_item = filtered_log[0].split(', ')[-3]
@@ -58,17 +59,24 @@ class UndoNoRedoRecovery:
     
     def _undo(self, T):
         filtered_logs = [log for log in self.db.disk_log if f'T{T.id}' == log.split(', ')[1]]
-        for log in reversed(filtered_logs):
-            step = log.split(', ')[0]
+        print(filtered_logs)
+        for l in reversed(filtered_logs):
+            step = l.split(', ')[0]
+            print(step)
             if step == 'write_item':
-                old_value = log.split(', ')[-2]
-                data_item = log.split(', ')[-3]
-                self.RM_Write(T, data_item, old_value)
+                old_value = l.split(', ')[-2]
+                data_item = l.split(', ')[-3]
+                log = self.RM_Write(T, data_item, old_value)
+        return log
 
     def RM_Restart(self):
+        logs = []
         not_consolidated = set(self.db.active_transactions).union(set(self.db.aborted_transactions)) - set(self.db.consolidated_transactions)
         not_consolidated = list(not_consolidated)
+        print(not_consolidated)
         for T in not_consolidated:
-            self._undo(T)
+            log = self._undo(T)
+            logs.append(log)
 
+        return logs
     

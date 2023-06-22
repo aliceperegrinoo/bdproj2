@@ -131,7 +131,7 @@ class RecoveryInterface(QMainWindow):
         self.btn_abort.clicked.connect(self.perform_abort)
         self.btn_commit.clicked.connect(self.perform_commit)
         self.btn_finish_transaction.clicked.connect(self.finish_transaction)
-        # self.btn_recover.clicked.connect(self.recover)
+        self.btn_recover.clicked.connect(self.start_recovery)
         self.radio_undo_redo.clicked.connect(self.undoredo_recovery)
         self.radio_undo_no_redo.clicked.connect(self.undonoredo_recovery)
         
@@ -142,14 +142,21 @@ class RecoveryInterface(QMainWindow):
         self.recovery_mode = UndoNoRedoRecovery(self.db)
 
     def start_recovery(self):
-        self.recovery_mode.RM_Restart()
-
+        self.log_disk_display.append('starting recovery...')
+        time.sleep(1)
+        logs = self.recovery_mode.RM_Restart()
+        for log in logs:
+            if log.split(', ')[0] == 'write_item':
+                data_item = log.split(', ')[2]
+                new_value = log.split(', ')[-1]
+                self.update_db_table(self.dict_dropdown[data_item], new_value)
+            self.log_disk_display.append(log)
+        
     def perform_read(self):
         data_item = str(self.combobox_dataitem.currentText())
         log = self.recovery_mode.RM_Read(self.transaction, data_item)
 
         if self.recovery_mode.name == 'UndoNoRedoRecovery':
-            # self.log_memory.append(log)
             self.log_memory_display.append(log)
             self.log_disk_display.append(log)
         if self.recovery_mode.name == 'UndoRedoRecovery':
@@ -200,15 +207,15 @@ class RecoveryInterface(QMainWindow):
             self.combobox_transactions.addItem(f'T{transaction.id}')
         
     def perform_fail(self):
-        self.log_memory = []
-        self.log_memory_display = []
+        self.log_memory_display.clear()
 
     def perform_checkpoint(self):
-        self.log_disk.extend(self.log_memory)
-        self.log_memory_display.clear()
-        self.log_disk_display.clear()
-        for log in self.db.disk_log:
-            self.log_disk_display.append(log)
+        active_transactions = [f'T{t.id}' for t in self.db.active_transactions]
+        self.log_disk_display.append(f'checkpoint, {active_transactions}')
+        add_to_disk = set(self.db.cache_log) - set(self.db.disk_log)
+        if len(list(add_to_disk)) > 0:
+            self.db.disk_log.extend(list(add_to_disk))
+            # self.log_memory_display.clear()
 
     def perform_abort(self):
         logs = self.recovery_mode.RM_Abort(self.transaction)
