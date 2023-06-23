@@ -55,8 +55,8 @@ class RecoveryInterface(QMainWindow):
 
         # Área de texto para exibir o log de memória
         self.log_memory_label = QLabel("Log da Cache", self)
-        self.log_memory_label.move(420,0)
-        # self.log_memory_label.setAlignment(Qt.AlignCenter)
+        # self.log_memory_label.move(420,0)
+        self.log_memory_label.setAlignment(Qt.AlignCenter)
         self.log_memory_display = QTextEdit(self)
         self.log_memory_display.setReadOnly(True)
 
@@ -107,7 +107,7 @@ class RecoveryInterface(QMainWindow):
         layout.addWidget(self.btn_commit, 13, 0)
         layout.addWidget(self.btn_finish_transaction, 14, 0)
         layout.addWidget(self.btn_recover, 15, 0)
-        layout.addWidget(self.log_memory_label, 0, 1, 4, 1)
+        layout.addWidget(self.log_memory_label, 0, 1)
         layout.addWidget(self.log_memory_display, 1, 1, 4, 1)
         layout.addWidget(self.log_disk_label, 6, 1)
         layout.addWidget(self.log_disk_display, 7, 1, 4, 1)
@@ -218,14 +218,16 @@ class RecoveryInterface(QMainWindow):
             # self.log_memory_display.clear()
 
     def perform_abort(self):
-        logs = self.recovery_mode.RM_Abort(self.transaction)
+        current_transaction = str(self.combobox_transactions.currentText())
+        current_object_transaction = [T for T in self.transactions if f'T{T.id}' == current_transaction] 
+        logs = self.recovery_mode.RM_Abort(current_object_transaction[0])
         for log in logs:
             self.log_memory_display.append(log)
             time.sleep(1)
             self.log_disk_display.append(log)
 
         if 'write_item' in self.transaction.steps:
-            filtered_logs = [log for log in logs if log.split(', ')[0] == 'write_item' and log.split(', ')[1] == f'T{self.transaction.id}']
+            filtered_logs = [log for log in logs if log.split(', ')[0] == 'write_item' and log.split(', ')[1] == f'T{current_object_transaction[0].id}']
             data_item = self.transaction.data_item
             new_value = filtered_logs[0].split(', ')[-1]
             self.update_db_table(self.dict_dropdown[data_item], new_value)
