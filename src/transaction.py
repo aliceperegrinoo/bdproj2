@@ -4,6 +4,3 @@ class Transaction:
         self.id = id
         self.data_item = data_item
         self.steps = steps
-
-    def start_transaction(self, T):
-        return f'start, T{T.id}'

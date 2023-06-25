@@ -17,18 +17,25 @@ class UndoNoRedoRecovery:
     def __init__(self, db):
         self.db = db
 
+    def start_transaction(self, T):
+        log = f'start, T{T.id}'
+        self.db.att_cache_log(log)
+        return log
+
     def RM_Read(self, T, data_item):
         log = f'read_item, T{T.id}, {data_item}, {self.db.data[data_item]}'
         self.db.att_cache_log(log)
-        self.db.att_disk_log(log)
         return log
 
     def RM_Write(self, T, data_item, new_value):
+        if T not in self.db.active_transactions:
+            self.db.add_active_transactions_list(T)
+
         old_value = self.db.data[data_item]
         self.db.data[data_item] = new_value
         log = f'write_item, T{T.id}, {data_item}, {old_value}, {new_value}'
         self.db.att_cache_log(log)
-        self.db.att_disk_log(log)
+        self.db.sync_cache_and_disk(T)
         return log
     
     def RM_Commit(self, T):

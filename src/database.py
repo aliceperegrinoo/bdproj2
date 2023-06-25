@@ -21,12 +21,23 @@ class Database:
     def get_checkpoint(self, *T):
         ids = ['T'+tr.id for tr in T]
         self.att_cache_log(f'checkpoint, {ids}')
-        self.sync_cache_and_disk_log()
+        self.sync_cache_and_disk_on_checkpoint()
 
-    def sync_cache_and_disk_log(self):
-        idx = [idx for idx, element in enumerate(self.cache_log) if element.startswith('checkpoint')]
-        self.disk_log.extend(self.cache_log[idx[0]:])
-    
+    def sync_cache_and_disk_on_checkpoint(self):
+        add_to_disk = []
+        for cache in self.cache_log:
+            if cache not in self.disk_log:
+                add_to_disk.append(cache)
+        return add_to_disk
+
+    def sync_cache_and_disk(self, T):
+        print(T.steps)
+        if T.steps[-1] == 'end':
+            filtered_logs = [log for log in self.cache_log if log.split(', ')[1] == f'T{T.id}']  
+            self.disk_log.extend(filtered_logs)
+
+        return filtered_logs
+
     def att_cache_log(self, status):
         self.cache_log.append(status)
 
