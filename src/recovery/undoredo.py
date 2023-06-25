@@ -41,7 +41,6 @@ class UndoRedoRecovery:
 
         T.steps.append('write_item')
         old_value = self.db.data[data_item]
-        self.db.data[data_item] = new_value
         log = f'write_item, T{T.id}, {data_item}, {old_value}, {new_value}'
         self.db.att_cache_log(log)
         return log
@@ -50,6 +49,7 @@ class UndoRedoRecovery:
         if type == 'default':
             logs = []
             logs_to_sync = self.db.sync_cache_and_disk(T)
+            logs_to_sync = self.db.check_for_duplicates_disk_log(logs_to_sync)
             logs.extend(logs_to_sync)
             commit_log = f'commit, T{T.id}'
             logs.append(commit_log)
@@ -72,7 +72,7 @@ class UndoRedoRecovery:
         log = f'aborted, T{T.id}'
         logs.append(log)
         self.db.att_cache_log(log)
-        self.db.att_disk_log(log)
+        # self.db.att_disk_log(log)
         if ('start' in T.steps) & ('read_item' not in T.steps):
             data_item = T.data_item
             logs.append(self.RM_Read(T, data_item))
@@ -86,24 +86,57 @@ class UndoRedoRecovery:
         return logs
     
     def _redo(self, T):
-        filtered_logs = [log for log in self.db.disk_log if f'T{T.id}' == log.split(', ')[1]]
-        for log in filtered_logs:
-            step = log.split(', ')[0]
-            if step == 'write_item':
-                new_value = log.split(', ')[-1]
-                data_item = log.split(', ')[-3]
-                self.RM_Write(T, data_item, new_value)
+        search_checkpoint = [log for log in self.db.disk_log if log.startswith('checkpoint')]
+        has_checkpoint = True if len(search_checkpoint) > 0 else False
+
+        if has_checkpoint: 
+            idx_checkpoint = [i for i, log in enumerate(self.db.disk_log) if log.startswith('checkpoint')]
+            idx_checkpoint = idx_checkpoint[-1]
+            recover_logs = self.db.disk_log[idx_checkpoint: ]
+            filtered_logs = [log for log in recover_logs if f'T{T.id}' == log.split(', ')[1]]
+            for log in filtered_logs:
+                step = log.split(', ')[0]
+                if step == 'write_item':
+                    new_value = log.split(', ')[-1]
+                    data_item = log.split(', ')[-3]
+                    self.RM_Write(T, data_item, new_value)
+        else:
+            filtered_logs = [log for log in self.db.disk_log if f'T{T.id}' == log.split(', ')[1]]
+            for log in filtered_logs:
+                step = log.split(', ')[0]
+                if step == 'write_item':
+                    new_value = log.split(', ')[-1]
+                    data_item = log.split(', ')[-3]
+                    self.RM_Write(T, data_item, new_value)
     
     def _undo(self, T):
-        filtered_logs = [log for log in self.db.disk_log if f'T{T.id}' == log.split(', ')[1]]
-        for log in reversed(filtered_logs):
-            step = log.split(', ')[0]
-            if step == 'write_item':
-                old_value = log.split(', ')[-2]
-                data_item = log.split(', ')[-3]
-                self.RM_Write(T, data_item, old_value)
+        search_checkpoint = [log for log in self.db.disk_log if log.startswith('checkpoint')]
+        has_checkpoint = True if len(search_checkpoint) > 0 else False
+
+        if has_checkpoint: 
+            idx_checkpoint = [i for i, log in enumerate(self.db.disk_log) if log.startswith('checkpoint')]
+            idx_checkpoint = idx_checkpoint[-1]
+            recover_logs = self.db.disk_log[idx_checkpoint: ]
+            filtered_logs = [log for log in recover_logs if f'T{T.id}' == log.split(', ')[1]]
+            for log in reversed(filtered_logs):
+                step = log.split(', ')[0]
+                if step == 'write_item':
+                    old_value = log.split(', ')[-2]
+                    data_item = log.split(', ')[-3]
+                    self.RM_Write(T, data_item, old_value)
+        else:
+            filtered_logs = [log for log in self.db.disk_log if f'T{T.id}' == log.split(', ')[1]]
+            for log in reversed(filtered_logs):
+                step = log.split(', ')[0]
+                if step == 'write_item':
+                    old_value = log.split(', ')[-2]
+                    data_item = log.split(', ')[-3]
+                    self.RM_Write(T, data_item, old_value)
 
     def RM_Restart(self):
+        print("Aborted: ", self.db.aborted_transactions)
+        print("Active transactions: ", self.db.active_transactions)
+        print("Consolidated transactions: ", self.db.consolidated_transactions)
         for T in self.db.aborted_transactions:
             self._undo(T)
         for T in self.db.active_transactions:

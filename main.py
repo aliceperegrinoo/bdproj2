@@ -21,6 +21,7 @@ class RecoveryInterface(QMainWindow):
         self.log_disk = []
         self.recovery_mode = ""  
         self.transactions = []
+        self.updated_state = self.db.data.copy()
 
         # Botões de operações
         self.btn_start_transaction = QPushButton("Iniciar Transação", self)
@@ -140,7 +141,7 @@ class RecoveryInterface(QMainWindow):
         self.setCentralWidget(widget)
 
         # Preencher a tabela com os dados do banco de dados
-        self.create_db_table()
+        self.create_db_table(db=self.db.data)
 
         # Conectar sinais aos slots
         self.btn_start_transaction.clicked.connect(self.start_transaction)
@@ -188,6 +189,8 @@ class RecoveryInterface(QMainWindow):
 
             self.log_memory_display.append(log)
 
+        print("Log disk read: ", self.db.disk_log)
+
     def perform_write(self):
         current_transaction = str(self.combobox_read.currentText())
         current_object_transaction = [T for T in self.transactions if f'T{T.id}' == current_transaction]
@@ -204,6 +207,8 @@ class RecoveryInterface(QMainWindow):
 
             self.radio_read.setEnabled(False)
 
+        print("Log disk write: ", self.db.disk_log)
+
     def finish_transaction(self):
         current_transaction = str(self.combobox_terminate.currentText())
         current_object_transaction = [T for T in self.transactions if f'T{T.id}' == current_transaction]
@@ -214,24 +219,29 @@ class RecoveryInterface(QMainWindow):
         else:
             self.terminate_warning.exec_()
 
+        print("Log disk finish: ", self.db.disk_log)
+
     def perform_commit(self):
         current_transaction = str(self.combobox_commit.currentText())
         current_object_transaction = [T for T in self.transactions if f'T{T.id}' == current_transaction]
         T = current_object_transaction[0]
         if 'end' in T.steps:
-            logs = self.recovery_mode.RM_Commit(T)
+            logs = self.recovery_mode.RM_Commit(T, type='default')
             for l in logs:
-                print(l)
                 self.log_disk_display.append(l)
                 if l.split(', ')[0] == 'write_item':
                     data_item = T.data_item
                     new_value = l.split(', ')[-1]
                     self.update_db_table(self.dict_dropdown[data_item], new_value)
+                
         else:
             self.commit_warning.exec_()
 
+        print("Log disk commit: ", self.db.disk_log)
+
     def perform_fail(self):
         self.log_memory_display.clear()
+        self.return_to_checkpoint_state()
 
     def perform_checkpoint(self):
         need_commit = []
@@ -243,6 +253,7 @@ class RecoveryInterface(QMainWindow):
         active_transactions = [f'T{t.id}' for t in self.db.active_transactions]
 
         add_to_disk = self.db.sync_cache_and_disk_on_checkpoint()
+        print("Add to disk: ", add_to_disk)
 
         if len(add_to_disk) > 0:
             for log in add_to_disk:
@@ -256,6 +267,7 @@ class RecoveryInterface(QMainWindow):
                     data_item = T.data_item
                     new_value = log.split(', ')[-1]
                     self.update_db_table(self.dict_dropdown[data_item], new_value)
+                    self.updated_state[data_item] = new_value
 
                 # adiciona um commit se a transação tiver sido finalizada
                 if str_tr in need_commit and event == 'end':
@@ -270,7 +282,10 @@ class RecoveryInterface(QMainWindow):
                     self.db.att_disk_log(log)
                     self.log_disk_display.append(log)
 
+        self.db.att_disk_log(f'checkpoint, {active_transactions}')
         self.log_disk_display.append(f'checkpoint, {active_transactions}')
+
+        print("Log disk checkpoint: ", self.db.disk_log)
 
     def _check_if_commit_is_needed(self, str_tr):
         T = [tr for tr in self.transactions if f'T{tr.id}' == str_tr]
@@ -296,6 +311,8 @@ class RecoveryInterface(QMainWindow):
             new_value = filtered_logs[0].split(', ')[-1]
             self.update_db_table(self.dict_dropdown[data_item], new_value)
 
+        print(self.db.disk_log)
+
     def undoredo_recovery(self):
         self.recovery_mode = UndoRedoRecovery(self.db)
 
@@ -303,13 +320,7 @@ class RecoveryInterface(QMainWindow):
         self.recovery_mode = UndoNoRedoRecovery(self.db)
 
     def start_recovery(self):
-        logs = self.recovery_mode.RM_Restart()
-        for log in logs:
-            if log.split(', ')[0] == 'write_item':
-                data_item = log.split(', ')[2]
-                new_value = log.split(', ')[-1]
-                self.update_db_table(self.dict_dropdown[data_item], new_value)
-            self.log_disk_display.append(log)
+        self.recovery_mode.RM_Restart()
 
     def update_dropdown_read(self):
         self.combobox_read.clear()
@@ -331,10 +342,10 @@ class RecoveryInterface(QMainWindow):
         for transaction in self.transactions:
             self.combobox_terminate.addItem(f'T{transaction.id}')
 
-    def create_db_table(self):
-        self.db_table.setRowCount(len(self.db.data))
+    def create_db_table(self, db):
+        self.db_table.setRowCount(len(db))
         row = 0
-        for item, value in self.db.data.items():
+        for item, value in db.items():
             item_widget = QTableWidgetItem(item)
             item_widget.setFlags(Qt.ItemIsEnabled)
             value_widget = QTableWidgetItem(value)
@@ -346,7 +357,18 @@ class RecoveryInterface(QMainWindow):
         item = QTableWidgetItem(str(value))
         self.db_table.setItem(row, column, item)
 
-    def get_table_state_from_checkpoint(self):
+    def update_db_table_on_checkpoint(self, db):
+        for i, val in enumerate(db.values()):
+            item = QTableWidgetItem(val)
+            self.db_table.setItem(i, 1, item)
+
+    def return_to_checkpoint_state(self):
+        log_checkpoint = [log for log in self.db.disk_log if log.startswith("checkpoint")]
+        if len(log_checkpoint) == 0:
+            self.update_db_table_on_checkpoint(db=self.db.data)
+        if len(log_checkpoint) > 0:
+            self.update_db_table_on_checkpoint(db=self.updated_state)
+
         return
 
 if __name__ == "__main__":
@@ -354,3 +376,4 @@ if __name__ == "__main__":
     window = RecoveryInterface()
     window.show()
     sys.exit(app.exec_())
+

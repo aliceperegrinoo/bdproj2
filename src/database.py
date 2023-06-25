@@ -29,14 +29,18 @@ class Database:
             if cache not in self.disk_log:
                 add_to_disk.append(cache)
         return add_to_disk
+    
+    def check_for_duplicates_disk_log(self, log_to_send_to_disk):
+        add_to_disk = []
+        for log in log_to_send_to_disk:
+            if log not in self.disk_log:
+                add_to_disk.append(log)
+        return add_to_disk
 
     def sync_cache_and_disk(self, T):
-        print(T.steps)
         if T.steps[-1] == 'end':
             filtered_logs = [log for log in self.cache_log if log.split(', ')[1] == f'T{T.id}']  
-            self.disk_log.extend(filtered_logs)
-
-        return filtered_logs
+            return filtered_logs
 
     def att_cache_log(self, status):
         self.cache_log.append(status)
@@ -64,13 +68,4 @@ class Database:
 
     def remove_aborted_transactions_list(self, T):
         self.aborted_transactions.remove(T)
-    
-    def failure(self, recovery_mode):
-        self.clean_cache_log()
-        if recovery_mode == 'UNDOREDO':
-            recovery = UndoRedoRecovery(self)
-            recovery.RM_Restart()
-        elif recovery_mode == 'UNDONOREDO':
-            recovery = UndoNoRedoRecovery(self)
-            recovery.RM_Restart()
     
