@@ -36,7 +36,6 @@ class RecoveryInterface(QMainWindow):
         # Radio buttons para selecionar o read/write
         self.radio_read = QRadioButton("Read", self)
         self.radio_write = QRadioButton("Write", self)
-        self.radio_write.setEnabled(False)
 
         # Radio buttons para selecionar o algoritmo de recuperação
         self.radio_undo_no_redo = QRadioButton("UNDO/NO-REDO", self)
@@ -108,6 +107,11 @@ class RecoveryInterface(QMainWindow):
         self.terminate_warning.setText("Não é permitido finalizar uma transação já finalizada!")
         self.terminate_warning.setIcon(QMessageBox.Warning)
 
+        self.write_warning = QMessageBox()
+        self.write_warning.setWindowTitle("Processo não permitido")
+        self.write_warning.setText("Não é permitido realizar uma operação de escrita num item de dado sem antes realizar uma operação de leitura desse item. Por favor, leia o item primeiro.")
+        self.write_warning.setIcon(QMessageBox.Warning)
+
         # Layout
         layout = QGridLayout()
         layout.addWidget(self.recovery_label, 0, 0)
@@ -160,7 +164,6 @@ class RecoveryInterface(QMainWindow):
         self.btn_restart.clicked.connect(self.restart_program)
 
     def start_transaction(self):
-        self.radio_read.setEnabled(False)
         self.transaction_id += 1
         data_item = str(self.combobox_dataitem.currentText())
         T = Transaction(self.db, self.transaction_id, data_item, steps=[])
@@ -170,12 +173,8 @@ class RecoveryInterface(QMainWindow):
         self.update_dropdown_terminate()
         self.update_dropdown_read()
         log = self.recovery_mode.start_transaction(T)
-        self.radio_read.setEnabled(True)
 
         self.log_memory_display.append(log)
-
-        if self.recovery_mode.name == 'UndoNoRedoRecovery':
-            self.btn_commit.setEnabled(False)
         
     def perform_read(self):
         current_transaction = str(self.combobox_read.currentText())
@@ -188,7 +187,6 @@ class RecoveryInterface(QMainWindow):
         else:
             data_item = str(self.combobox_dataitem.currentText())
             log = self.recovery_mode.RM_Read(T, data_item)
-            self.radio_write.setEnabled(True)
 
             self.log_memory_display.append(log)
 
@@ -199,34 +197,36 @@ class RecoveryInterface(QMainWindow):
         current_object_transaction = [T for T in self.transactions if f'T{T.id}' == current_transaction]
         T = current_object_transaction[0]
 
-        if self.recovery_mode.name == 'UndoRedoRecovery':
-            if 'end' in T.steps:
-                self.readwrite_warning.exec_()
-            else: 
-                data_item = str(self.combobox_dataitem.currentText())
-                new_value = str(self.textbox.text())
-                log = self.recovery_mode.RM_Write(T, data_item, new_value)
+        data_item = T.data_item
+        read_log = [log for log in self.db.cache_log if log.split(', ')[0] == 'read_item' and log.split(', ')[1] == f'T{T.id}' and log.split(', ')[2] == data_item]
+        
+        if len(read_log) > 0:
+            if self.recovery_mode.name == 'UndoRedoRecovery':
+                if 'end' in T.steps:
+                    self.readwrite_warning.exec_()
+                else: 
+                    data_item = str(self.combobox_dataitem.currentText())
+                    new_value = str(self.textbox.text())
+                    log = self.recovery_mode.RM_Write(T, data_item, new_value)
 
-                self.log_memory_display.append(log)
+                    self.log_memory_display.append(log)
 
-                self.radio_read.setEnabled(False)
+            elif self.recovery_mode.name == 'UndoNoRedoRecovery':
+                if 'end' in T.steps:
+                    self.readwrite_warning.exec_()
+                else: 
+                    data_item = str(self.combobox_dataitem.currentText())
+                    new_value = str(self.textbox.text())
+                    logs = self.recovery_mode.RM_Write(T, data_item, new_value)
+                    self.log_memory_display.append(logs[-1])
+                    for log in logs:
+                        self.log_disk_display.append(log)
+                        self.update_db_table(self.dict_dropdown[data_item], new_value)
+                        self.updated_state[data_item] = new_value
 
-        elif self.recovery_mode.name == 'UndoNoRedoRecovery':
-            if 'end' in T.steps:
-                self.readwrite_warning.exec_()
-            else: 
-                data_item = str(self.combobox_dataitem.currentText())
-                new_value = str(self.textbox.text())
-                logs = self.recovery_mode.RM_Write(T, data_item, new_value)
-                self.log_memory_display.append(logs[-1])
-                for log in logs:
-                    self.log_disk_display.append(log)
-                    self.update_db_table(self.dict_dropdown[data_item], new_value)
-                    self.updated_state[data_item] = new_value
-
-                self.radio_read.setEnabled(False)
-
-        print("Log disk write: ", self.db.disk_log)
+            print("Log disk write: ", self.db.disk_log)
+        else:
+            self.write_warning.exec_()
 
     def finish_transaction(self):
         current_transaction = str(self.combobox_terminate.currentText())
