@@ -36,15 +36,21 @@ class UndoNoRedoRecovery:
         return log
 
     def RM_Write(self, T, data_item, new_value):
+        logs = []
         if T not in self.db.active_transactions:
             self.db.add_active_transactions_list(T)
 
         T.steps.append('write_item')
         old_value = self.db.data[data_item]
+        logs_to_sync = self.db.sync_cache_and_disk(T)
+        logs_to_sync = self.db.check_for_duplicates_disk_log(logs_to_sync)
+        logs.extend(logs_to_sync)
         log = f'write_item, T{T.id}, {data_item}, {old_value}, {new_value}'
+        logs.append(log)
         self.db.att_cache_log(log)
-        self.db.att_disk_log(log)
-        return log
+        for l in logs:
+            self.db.att_disk_log(l)
+        return logs
         
     def RM_Commit(self, T, type='default'):
         if type == 'default':

@@ -39,9 +39,9 @@ class Database:
             return add_to_disk
 
     def sync_cache_and_disk(self, T):
-        if T.steps[-1] == 'end':
-            filtered_logs = [log for log in self.cache_log if log.split(', ')[1] == f'T{T.id}']  
-            return filtered_logs
+        filtered_logs = [log for log in self.cache_log if log.split(', ')[1] == f'T{T.id}']  
+        return filtered_logs
+        
 
     def att_cache_log(self, status):
         self.cache_log.append(status)
