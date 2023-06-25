@@ -196,16 +196,32 @@ class RecoveryInterface(QMainWindow):
         current_object_transaction = [T for T in self.transactions if f'T{T.id}' == current_transaction]
         T = current_object_transaction[0]
 
-        if 'end' in T.steps:
-            self.readwrite_warning.exec_()
-        else: 
-            data_item = str(self.combobox_dataitem.currentText())
-            new_value = str(self.textbox.text())
-            log = self.recovery_mode.RM_Write(T, data_item, new_value)
+        if self.recovery_mode.name == 'UndoRedoRecovery':
+            if 'end' in T.steps:
+                self.readwrite_warning.exec_()
+            else: 
+                data_item = str(self.combobox_dataitem.currentText())
+                new_value = str(self.textbox.text())
+                log = self.recovery_mode.RM_Write(T, data_item, new_value)
 
-            self.log_memory_display.append(log)
+                self.log_memory_display.append(log)
 
-            self.radio_read.setEnabled(False)
+                self.radio_read.setEnabled(False)
+
+        elif self.recovery_nome.name == 'UndoNoRedoRecovery':
+            if 'end' in T.steps:
+                self.readwrite_warning.exec_()
+            else: 
+                data_item = str(self.combobox_dataitem.currentText())
+                new_value = str(self.textbox.text())
+                log = self.recovery_mode.RM_Write(T, data_item, new_value)
+
+                self.log_memory_display.append(log)
+                self.log_disk_display.append(log)
+                self.update_db_table(self.dict_dropdown[data_item], new_value)
+
+                self.radio_read.setEnabled(False)
+
 
         print("Log disk write: ", self.db.disk_log)
 
@@ -233,9 +249,8 @@ class RecoveryInterface(QMainWindow):
                     data_item = T.data_item
                     new_value = l.split(', ')[-1]
                     self.update_db_table(self.dict_dropdown[data_item], new_value)
-                
-        else:
-            self.commit_warning.exec_()
+            else:
+                self.commit_warning.exec_()
 
         print("Log disk commit: ", self.db.disk_log)
 
@@ -320,7 +335,21 @@ class RecoveryInterface(QMainWindow):
         self.recovery_mode = UndoNoRedoRecovery(self.db)
 
     def start_recovery(self):
-        self.recovery_mode.RM_Restart()
+        results = self.recovery_mode.RM_Restart()
+        if 'aborted' in results.keys():
+            for data_item, value in results['aborted']:
+                self.update_db_table(self.dict_dropdown[data_item], value)
+                self.updated_state[data_item] = value
+
+        if 'active' in results.keys():
+            for data_item, value in results['active']:
+                self.update_db_table(self.dict_dropdown[data_item], value)
+                self.updated_state[data_item] = value
+
+        if 'consolidated' in results.keys():
+            for data_item, value in results['consolidated']:
+                self.update_db_table(self.dict_dropdown[data_item], value)
+                self.updated_state[data_item] = value                
 
     def update_dropdown_read(self):
         self.combobox_read.clear()

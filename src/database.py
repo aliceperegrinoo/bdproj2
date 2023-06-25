@@ -32,10 +32,11 @@ class Database:
     
     def check_for_duplicates_disk_log(self, log_to_send_to_disk):
         add_to_disk = []
-        for log in log_to_send_to_disk:
-            if log not in self.disk_log:
-                add_to_disk.append(log)
-        return add_to_disk
+        if len(log_to_send_to_disk) > 0:
+            for log in log_to_send_to_disk:
+                if log not in self.disk_log:
+                    add_to_disk.append(log)
+            return add_to_disk
 
     def sync_cache_and_disk(self, T):
         if T.steps[-1] == 'end':

@@ -86,62 +86,53 @@ class UndoRedoRecovery:
         return logs
     
     def _redo(self, T):
-        search_checkpoint = [log for log in self.db.disk_log if log.startswith('checkpoint')]
-        has_checkpoint = True if len(search_checkpoint) > 0 else False
+        redo_updates = []
+        filtered_logs = [log for log in self.db.disk_log if f'T{T.id}' == log.split(', ')[1]]
+        for log in filtered_logs:
+            step = log.split(', ')[0]
+            if step == 'write_item':
+                new_value = log.split(', ')[-1]
+                data_item = log.split(', ')[-3]
+                self.RM_Write(T, data_item, new_value)
+                redo_updates.append((data_item, new_value))
 
-        if has_checkpoint: 
-            idx_checkpoint = [i for i, log in enumerate(self.db.disk_log) if log.startswith('checkpoint')]
-            idx_checkpoint = idx_checkpoint[-1]
-            recover_logs = self.db.disk_log[idx_checkpoint: ]
-            filtered_logs = [log for log in recover_logs if f'T{T.id}' == log.split(', ')[1]]
-            for log in filtered_logs:
-                step = log.split(', ')[0]
-                if step == 'write_item':
-                    new_value = log.split(', ')[-1]
-                    data_item = log.split(', ')[-3]
-                    self.RM_Write(T, data_item, new_value)
-        else:
-            filtered_logs = [log for log in self.db.disk_log if f'T{T.id}' == log.split(', ')[1]]
-            for log in filtered_logs:
-                step = log.split(', ')[0]
-                if step == 'write_item':
-                    new_value = log.split(', ')[-1]
-                    data_item = log.split(', ')[-3]
-                    self.RM_Write(T, data_item, new_value)
+        return redo_updates
     
     def _undo(self, T):
-        search_checkpoint = [log for log in self.db.disk_log if log.startswith('checkpoint')]
-        has_checkpoint = True if len(search_checkpoint) > 0 else False
+        undo_updates = []
+        filtered_logs = [log for log in self.db.disk_log if f'T{T.id}' == log.split(', ')[1]]
+        for log in reversed(filtered_logs):
+            step = log.split(', ')[0]
+            if step == 'write_item':
+                old_value = log.split(', ')[-2]
+                data_item = log.split(', ')[-3]
+                self.RM_Write(T, data_item, old_value)
+                undo_updates.append((data_item, old_value))
 
-        if has_checkpoint: 
-            idx_checkpoint = [i for i, log in enumerate(self.db.disk_log) if log.startswith('checkpoint')]
-            idx_checkpoint = idx_checkpoint[-1]
-            recover_logs = self.db.disk_log[idx_checkpoint: ]
-            filtered_logs = [log for log in recover_logs if f'T{T.id}' == log.split(', ')[1]]
-            for log in reversed(filtered_logs):
-                step = log.split(', ')[0]
-                if step == 'write_item':
-                    old_value = log.split(', ')[-2]
-                    data_item = log.split(', ')[-3]
-                    self.RM_Write(T, data_item, old_value)
-        else:
-            filtered_logs = [log for log in self.db.disk_log if f'T{T.id}' == log.split(', ')[1]]
-            for log in reversed(filtered_logs):
-                step = log.split(', ')[0]
-                if step == 'write_item':
-                    old_value = log.split(', ')[-2]
-                    data_item = log.split(', ')[-3]
-                    self.RM_Write(T, data_item, old_value)
+        return undo_updates
 
     def RM_Restart(self):
+
+        dict_results = {}
         print("Aborted: ", self.db.aborted_transactions)
         print("Active transactions: ", self.db.active_transactions)
         print("Consolidated transactions: ", self.db.consolidated_transactions)
-        for T in self.db.aborted_transactions:
-            self._undo(T)
-        for T in self.db.active_transactions:
-            self._undo(T)
-        for T in self.db.consolidated_transactions:
-            self._redo(T)
+
+        if len(self.db.aborted_transactions) > 0:
+            for T in self.db.aborted_transactions:
+                undo_aborted_updates = self._undo(T)
+                dict_results['aborted'] = undo_aborted_updates
+        
+        if len(self.db.active_transactions) > 0:
+            for T in self.db.active_transactions:
+                undo_active_updates = self._undo(T)
+                dict_results['active'] = undo_active_updates
+
+        if len(self.db.consolidated_transactions) > 0:            
+            for T in self.db.consolidated_transactions:
+                redo_consolidated_updates = self._redo(T)
+                dict_results['consolidated'] = redo_consolidated_updates
+
+        return dict_results
 
 
