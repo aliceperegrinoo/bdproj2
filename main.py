@@ -17,6 +17,7 @@ class RecoveryInterface(QMainWindow):
         # Variáveis do SGBD
         self.transaction_id = 0
         self.db = Database(data={'x': "2", 'y': "5", "z": "10"})
+        print(self.db.data)
         self.log_memory = []
         self.log_disk = []
         self.recovery_mode = ""  
@@ -176,7 +177,7 @@ class RecoveryInterface(QMainWindow):
             self.transaction_id += 1
             data_item = str(self.combobox_dataitem.currentText())
             T = Transaction(self.db, self.transaction_id, data_item, steps=[])
-            self.db.data = self.updated_state
+            self.update_db_table_on_checkpoint(db=self.updated_state)
             self.transactions.append(T)
             self.update_dropdown_abort()
             self.update_dropdown_commit()
@@ -361,8 +362,11 @@ class RecoveryInterface(QMainWindow):
         self.combobox_commit.clear()
         self.combobox_terminate.clear()
         self.combobox_read.clear()
-        self.update_db_table_on_checkpoint(db=self.initial_state)
+        self.db = Database(data={'x': "2", 'y': "5", "z": "10"})
+        self.update_db_table_on_checkpoint(db=self.db.data)
         self.transaction_id = 0
+        self.recovery_mode = ''
+        self.updated_state = self.db.data.copy()
 
     def undoredo_recovery(self):
         self.recovery_mode = UndoRedoRecovery(self.db)
