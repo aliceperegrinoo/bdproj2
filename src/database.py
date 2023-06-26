@@ -32,6 +32,8 @@ class Database:
                 if log not in self.disk_log:
                     add_to_disk.append(log)
             return add_to_disk
+        else:
+            return []
 
     def sync_cache_and_disk(self, T):
         filtered_logs = [log for log in self.cache_log if log.split(', ')[1] == f'T{T.id}']  

@@ -343,7 +343,6 @@ class RecoveryInterface(QMainWindow):
             self.commit_warning.exec_()
         else:
             logs = self.recovery_mode.RM_Abort(T)
-            print(logs)
             for log in logs:
                 self.log_memory_display.append(log)
                 self.log_disk_display.append(log)

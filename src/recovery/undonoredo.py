@@ -43,8 +43,11 @@ class UndoNoRedoRecovery:
         T.steps.append('write_item')
         old_value = self.db.data[data_item]
         logs_to_sync = self.db.sync_cache_and_disk(T)
+        print(logs_to_sync)
         logs_to_sync = self.db.check_for_duplicates_disk_log(logs_to_sync)
-        logs.extend(logs_to_sync)
+        print(logs_to_sync)
+        if len(logs_to_sync) > 0:
+            logs.extend(logs_to_sync)
         log = f'write_item, T{T.id}, {data_item}, {old_value}, {new_value}'
         logs.append(log)
         self.db.att_cache_log(log)
