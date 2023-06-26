@@ -118,10 +118,10 @@ class RecoveryInterface(QMainWindow):
         self.recovery_warning.setText("Por favor, selecione o algortimo de recuperação primeiro.")
         self.recovery_warning.setIcon(QMessageBox.Warning)
 
-        self.commit_warning = QMessageBox()
-        self.commit_warning.setWindowTitle("Processo não permitido")
-        self.commit_warning.setText("Não é permitido abortar uma transação commitada.")
-        self.commit_warning.setIcon(QMessageBox.Warning)
+        self.no_aborted_commit_warning = QMessageBox()
+        self.no_aborted_commit_warning.setWindowTitle("Processo não permitido")
+        self.no_aborted_commit_warning.setText("Não é permitido abortar uma transação commitada.")
+        self.no_aborted_commit_warning.setIcon(QMessageBox.Warning)
 
         # Layout
         layout = QGridLayout()
@@ -146,13 +146,13 @@ class RecoveryInterface(QMainWindow):
         layout.addWidget(self.btn_recover, 18, 0)
         layout.addWidget(self.btn_restart, 21, 0)
         layout.addWidget(self.log_memory_label, 0, 1)
-        layout.addWidget(self.log_memory_display, 1, 1, 4, 1)
-        layout.addWidget(self.log_disk_label, 8, 1)
-        layout.addWidget(self.log_disk_display, 9, 1, 4, 1)
-        layout.addWidget(self.db_table_label, 20, 1)
-        layout.addWidget(self.db_table, 21, 1, 2, 1)
+        layout.addWidget(self.log_memory_display, 1, 1, 5, 1)        
+        layout.addWidget(self.log_disk_label, 7, 1)
+        layout.addWidget(self.log_disk_display, 8, 1, 5, 1)        
+        layout.addWidget(self.db_table_label, 14, 1)
+        layout.addWidget(self.db_table, 15, 1, 8, 1)
 
-        # Widget principal
+       # Widget principal
         widget = QWidget()
         widget.setLayout(layout)
         self.setCentralWidget(widget)
@@ -339,8 +339,8 @@ class RecoveryInterface(QMainWindow):
         current_transaction = str(self.combobox_abort.currentText())
         current_object_transaction = [T for T in self.transactions if f'T{T.id}' == current_transaction] 
         T = current_object_transaction[0]
-        if 'commit' in T.steps:
-            self.commit_warning.exec_()
+        if 'commit' not in T.steps:
+            self.no_aborted_commit_warning.exec_()
         else:
             logs = self.recovery_mode.RM_Abort(T)
             for log in logs:
@@ -385,15 +385,18 @@ class RecoveryInterface(QMainWindow):
         results = self.recovery_mode.RM_Restart()
         if 'aborted' in results.keys():
             for data_item, value in results['aborted']:
+                print(data_item, value)
                 self.update_db_table(self.dict_dropdown[data_item], value)
                 self.updated_state[data_item] = value
 
         if 'active' in results.keys():
             for data_item, value in results['active']:
+                print(data_item, value)
                 self.update_db_table(self.dict_dropdown[data_item], value)
                 self.updated_state[data_item] = value
 
         if 'consolidated' in results.keys():
+            print(data_item, value)
             for data_item, value in results['consolidated']:
                 self.update_db_table(self.dict_dropdown[data_item], value)
                 self.updated_state[data_item] = value                
