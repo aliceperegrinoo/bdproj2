@@ -17,7 +17,6 @@ class RecoveryInterface(QMainWindow):
         # Variáveis do SGBD
         self.transaction_id = 0
         self.db = Database(data={'x': "2", 'y': "5", "z": "10"})
-        print(self.db.data)
         self.log_memory = []
         self.log_disk = []
         self.recovery_mode = ""  
@@ -36,8 +35,8 @@ class RecoveryInterface(QMainWindow):
         self.btn_restart = QPushButton("Reiniciar", self)
 
         # Radio buttons para selecionar o read/write
-        self.radio_read = QRadioButton("Read", self)
-        self.radio_write = QRadioButton("Write", self)
+        self.radio_read = QPushButton("Read", self)
+        self.radio_write = QPushButton("Write", self)
 
         # Radio buttons para selecionar o algoritmo de recuperação
         self.radio_undo_no_redo = QRadioButton("UNDO/NO-REDO", self)
