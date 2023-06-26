@@ -17,11 +17,6 @@ class Database:
         self.active_transactions = []
         self.consolidated_transactions = []
         self.aborted_transactions = []
-    
-    def get_checkpoint(self, *T):
-        ids = ['T'+tr.id for tr in T]
-        self.att_cache_log(f'checkpoint, {ids}')
-        self.sync_cache_and_disk_on_checkpoint()
 
     def sync_cache_and_disk_on_checkpoint(self):
         add_to_disk = []
@@ -45,9 +40,6 @@ class Database:
 
     def att_cache_log(self, status):
         self.cache_log.append(status)
-
-    def clean_cache_log(self):
-        self.cache_log = []
 
     def att_disk_log(self, status):
         self.disk_log.append(status)

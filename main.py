@@ -21,6 +21,7 @@ class RecoveryInterface(QMainWindow):
         self.log_disk = []
         self.recovery_mode = ""  
         self.transactions = []
+        self.initial_state = self.db.data.copy()
         self.updated_state = self.db.data.copy()
 
         # Botões de operações
@@ -112,6 +113,11 @@ class RecoveryInterface(QMainWindow):
         self.write_warning.setText("Não é permitido realizar uma operação de escrita num item de dado sem antes realizar uma operação de leitura desse item. Por favor, leia o item primeiro.")
         self.write_warning.setIcon(QMessageBox.Warning)
 
+        self.recovery_warning = QMessageBox()
+        self.recovery_warning.setWindowTitle("Processo não permitido")
+        self.recovery_warning.setText("Por favor, selecione o algortimo de recuperação primeiro.")
+        self.recovery_warning.setIcon(QMessageBox.Warning)
+
         # Layout
         layout = QGridLayout()
         layout.addWidget(self.recovery_label, 0, 0)
@@ -164,17 +170,21 @@ class RecoveryInterface(QMainWindow):
         self.btn_restart.clicked.connect(self.restart_program)
 
     def start_transaction(self):
-        self.transaction_id += 1
-        data_item = str(self.combobox_dataitem.currentText())
-        T = Transaction(self.db, self.transaction_id, data_item, steps=[])
-        self.transactions.append(T)
-        self.update_dropdown_abort()
-        self.update_dropdown_commit()
-        self.update_dropdown_terminate()
-        self.update_dropdown_read()
-        log = self.recovery_mode.start_transaction(T)
+        if self.recovery_mode == '':
+            self.recovery_warning.exec_()
+        else:
+            self.transaction_id += 1
+            data_item = str(self.combobox_dataitem.currentText())
+            T = Transaction(self.db, self.transaction_id, data_item, steps=[])
+            self.db.data = self.updated_state
+            self.transactions.append(T)
+            self.update_dropdown_abort()
+            self.update_dropdown_commit()
+            self.update_dropdown_terminate()
+            self.update_dropdown_read()
+            log = self.recovery_mode.start_transaction(T)
 
-        self.log_memory_display.append(log)
+            self.log_memory_display.append(log)
         
     def perform_read(self):
         current_transaction = str(self.combobox_read.currentText())
@@ -339,13 +349,18 @@ class RecoveryInterface(QMainWindow):
     def restart_program(self):
         self.db.cache_log = []
         self.db.disk_log = []
-        self.log_disk_display.clear()
-        self.log_memory_display.clear()
         self.db.aborted_transactions = []
         self.db.active_transactions = []
         self.db.consolidated_transactions = []
-        self.update_db_table_on_checkpoint(db=self.db.data)
         self.transactions = []
+        self.log_disk_display.clear()
+        self.log_memory_display.clear()
+        self.combobox_abort.clear()
+        self.combobox_commit.clear()
+        self.combobox_terminate.clear()
+        self.combobox_read.clear()
+        self.update_db_table_on_checkpoint(db=self.initial_state)
+        self.transaction_id = 0
 
     def undoredo_recovery(self):
         self.recovery_mode = UndoRedoRecovery(self.db)
