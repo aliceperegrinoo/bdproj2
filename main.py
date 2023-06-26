@@ -118,6 +118,11 @@ class RecoveryInterface(QMainWindow):
         self.recovery_warning.setText("Por favor, selecione o algortimo de recuperação primeiro.")
         self.recovery_warning.setIcon(QMessageBox.Warning)
 
+        self.commit_warning = QMessageBox()
+        self.commit_warning.setWindowTitle("Processo não permitido")
+        self.commit_warning.setText("Não é permitido abortar uma transação commitada.")
+        self.commit_warning.setIcon(QMessageBox.Warning)
+
         # Layout
         layout = QGridLayout()
         layout.addWidget(self.recovery_label, 0, 0)
@@ -269,6 +274,7 @@ class RecoveryInterface(QMainWindow):
 
     def perform_fail(self):
         self.log_memory_display.clear()
+        self.db.cache_log = []
         self.return_to_checkpoint_state()
 
     def perform_checkpoint(self): 
@@ -333,18 +339,21 @@ class RecoveryInterface(QMainWindow):
         current_transaction = str(self.combobox_abort.currentText())
         current_object_transaction = [T for T in self.transactions if f'T{T.id}' == current_transaction] 
         T = current_object_transaction[0]
-        logs = self.recovery_mode.RM_Abort(T)
-        print(logs)
-        for log in logs:
-            self.log_memory_display.append(log)
-            self.log_disk_display.append(log)
+        if 'commit' in T.steps:
+            self.commit_warning.exec_()
+        else:
+            logs = self.recovery_mode.RM_Abort(T)
+            print(logs)
+            for log in logs:
+                self.log_memory_display.append(log)
+                self.log_disk_display.append(log)
 
-        if 'write_item' in T.steps:
-            filtered_logs = [log for log in logs if log.split(', ')[0] == 'write_item' and \
-                              log.split(', ')[1] == f'T{T.id}']
-            data_item = T.data_item
-            new_value = filtered_logs[0].split(', ')[-1]
-            self.update_db_table(self.dict_dropdown[data_item], new_value)
+            if 'write_item' in T.steps:
+                filtered_logs = [log for log in logs if log.split(', ')[0] == 'write_item' and \
+                                log.split(', ')[1] == f'T{T.id}']
+                data_item = T.data_item
+                new_value = filtered_logs[0].split(', ')[-1]
+                self.update_db_table(self.dict_dropdown[data_item], new_value)
 
         print(self.db.disk_log)
 
