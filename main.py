@@ -334,13 +334,14 @@ class RecoveryInterface(QMainWindow):
         current_object_transaction = [T for T in self.transactions if f'T{T.id}' == current_transaction] 
         T = current_object_transaction[0]
         logs = self.recovery_mode.RM_Abort(T)
+        print(logs)
         for log in logs:
             self.log_memory_display.append(log)
             self.log_disk_display.append(log)
 
         if 'write_item' in T.steps:
             filtered_logs = [log for log in logs if log.split(', ')[0] == 'write_item' and \
-                              log.split(', ')[1] == f'T{current_object_transaction.id}']
+                              log.split(', ')[1] == f'T{T.id}']
             data_item = T.data_item
             new_value = filtered_logs[0].split(', ')[-1]
             self.update_db_table(self.dict_dropdown[data_item], new_value)
