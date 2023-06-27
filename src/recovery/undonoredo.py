@@ -128,11 +128,13 @@ class UndoNoRedoRecovery:
     def RM_Abort(self, T):
         logs = []
         log = f'aborted, T{T.id}'
+        T.steps.append('abort')
         logs.append(log)
         # self.db.att_disk_log(log)
-        if ('start' in T.steps) & ('read_item' not in T.steps):
-            data_item = T.data_item
-            logs.append(self.RM_Read(T, data_item))
+        # if ('start' in T.steps) & ('read_item' not in T.steps):
+            
+        #     data_item = T.data_item
+        #     logs.append(self.RM_Read(T, data_item))
         # if 'write_item' in T.steps:
         #     filtered_log = [log for log in self.db.cache_log if log.split(', ')[0] == 'write_item' and log.split(', ')[1] == f'T{T.id}']
         #     ImAn = filtered_log[0].split(', ')[-2]
@@ -149,7 +151,7 @@ class UndoNoRedoRecovery:
             print("Disk log no undo: ", self.db.disk_log)
             filtered_logs = [log for log in self.db.disk_log if f'T{T.id}' == log.split(', ')[1] \
                               and not log.startswith('start') \
-                                 and not log.startswith('abort') \
+                                 and not log.startswith('aborted') \
                                      and not log.startswith('end') \
                                           and not log.startswith('commit') \
                                             and log.split(', ')[2] == di]

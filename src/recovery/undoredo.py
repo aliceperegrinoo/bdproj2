@@ -110,12 +110,13 @@ class UndoRedoRecovery:
     def RM_Abort(self, T):
         logs = []
         log = f'aborted, T{T.id}'
+        T.steps.append('abort')
         logs.append(log)
         self.db.att_cache_log(log)
         # self.db.att_disk_log(log)
-        if ('start' in T.steps) & ('read_item' not in T.steps):
-            data_item = T.data_item
-            logs.append(self.RM_Read(T, data_item))
+        # if ('start' in T.steps) & ('read_item' not in T.steps):
+        #     data_item = T.data_item
+        #     logs.append(self.RM_Read(T, data_item))
         # if 'write_item' in T.steps:
         #     filtered_log = [log for log in self.db.cache_log if log.split(', ')[0] == 'write_item' and log.split(', ')[1] == f'T{T.id}']
         #     ImAn = filtered_log[0].split(', ')[-2]

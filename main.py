@@ -369,6 +369,10 @@ class RecoveryInterface(QMainWindow):
                 self.log_disk_display.append(f'checkpoint, {active_transactions}')
 
             elif self.recovery_mode.name == 'UndoNoRedoRecovery':
+                for T in self.transactions:
+                    if 'abort' in T.steps:
+                        abort_transaction = [log for log in self.db.cache_log if log.split(', ')[0].startswith('aborted')]
+                        self.db.att_disk_log(abort_transaction)
                 self.db.att_disk_log(f'checkpoint, {active_transactions}')
                 self.log_disk_display.append(f'checkpoint, {active_transactions}') 
 
