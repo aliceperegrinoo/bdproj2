@@ -123,14 +123,14 @@ class UndoNoRedoRecovery:
         if ('start' in T.steps) & ('read_item' not in T.steps):
             data_item = T.data_item
             logs.append(self.RM_Read(T, data_item))
-        if 'write_item' in T.steps:
-            filtered_log = [log for log in self.db.cache_log if log.split(', ')[0] == 'write_item' and log.split(', ')[1] == f'T{T.id}']
-            ImAn = filtered_log[0].split(', ')[-2]
-            data_item = filtered_log[0].split(', ')[-3]
-            logs.extend(self.RM_Write(T, data_item, ImAn))
-            self.db.add_aborted_transactions_list(T)
-            self.db.remove_active_transactions_list(T)
-            self.db.att_cache_log(log)
+        # if 'write_item' in T.steps:
+        #     filtered_log = [log for log in self.db.cache_log if log.split(', ')[0] == 'write_item' and log.split(', ')[1] == f'T{T.id}']
+        #     ImAn = filtered_log[0].split(', ')[-2]
+        #     data_item = filtered_log[0].split(', ')[-3]
+        #     logs.extend(self.RM_Write(T, data_item, ImAn))
+        self.db.add_aborted_transactions_list(T)
+        self.db.remove_active_transactions_list(T)
+        self.db.att_cache_log(log)
         return logs
     
     def _undo(self, T):

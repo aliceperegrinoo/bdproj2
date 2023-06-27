@@ -129,6 +129,11 @@ class RecoveryInterface(QMainWindow):
         self.checkpoint_warning.setText("Não há nenhuma atualização a fazer no checkpoint.")
         self.checkpoint_warning.setIcon(QMessageBox.Warning)
 
+        self.abort_warning = QMessageBox()
+        self.abort_warning.setWindowTitle("Processo não permitido")
+        self.abort_warning.setText("Não é possível terminar uma transação abortada.")
+        self.abort_warning.setIcon(QMessageBox.Warning)
+
         # Layout
         layout = QGridLayout()
         layout.addWidget(self.recovery_label, 0, 0)
@@ -261,13 +266,17 @@ class RecoveryInterface(QMainWindow):
         current_transaction = str(self.combobox_terminate.currentText())
         current_object_transaction = [T for T in self.transactions if f'T{T.id}' == current_transaction]
         T = current_object_transaction[0]
-        if 'end' not in T.steps:
-            log = self.recovery_mode.terminate_transaction(T)
-            self.log_memory_display.append(log)
-        else:
-            self.terminate_warning.exec_()
+        if 'abort' in T.steps:
+            self.abort_warning.exec_()
 
-        print("Log disk finish: ", self.db.disk_log)
+        else:
+            if 'end' not in T.steps:
+                log = self.recovery_mode.terminate_transaction(T)
+                self.log_memory_display.append(log)
+            else:
+                self.terminate_warning.exec_()
+
+            print("Log disk finish: ", self.db.disk_log)
 
     def perform_commit(self):
         current_transaction = str(self.combobox_commit.currentText())
@@ -369,14 +378,14 @@ class RecoveryInterface(QMainWindow):
             logs = self.recovery_mode.RM_Abort(T)
             for log in logs:
                 self.log_memory_display.append(log)
-                self.log_disk_display.append(log)
+                # self.log_disk_display.append(log)
 
-            if 'write_item' in T.steps:
-                filtered_logs = [log for log in logs if log.split(', ')[0] == 'write_item' and \
-                                log.split(', ')[1] == f'T{T.id}']
-                data_item = T.data_item
-                new_value = filtered_logs[0].split(', ')[-1]
-                self.update_db_table(self.dict_dropdown[data_item], new_value)
+            # if 'write_item' in T.steps:
+            #     filtered_logs = [log for log in logs if log.split(', ')[0] == 'write_item' and \
+            #                     log.split(', ')[1] == f'T{T.id}']
+            #     data_item = T.data_item
+            #     new_value = filtered_logs[0].split(', ')[-1]
+            #     self.update_db_table(self.dict_dropdown[data_item], new_value)
 
         print(self.db.disk_log)
 
