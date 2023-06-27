@@ -245,11 +245,9 @@ class RecoveryInterface(QMainWindow):
                     self.readwrite_warning.exec_()
                 else: 
                     data_item = str(self.combobox_dataitem.currentText())
-                    print("Data item: ", data_item)
                     new_value = str(self.textbox.text())
                     log = self.recovery_mode.RM_Write(T, current_data_item, new_value)
                     self.read_state[data_item] = new_value
-                    print("Updated state after write = ", self.updated_state)
 
                     self.log_memory_display.append(log)
 
@@ -264,7 +262,7 @@ class RecoveryInterface(QMainWindow):
                         self.log_disk_display.append(log)
                         self.update_db_table(self.dict_dropdown[current_data_item], new_value)
                         self.updated_state[current_data_item] = new_value
-                        self.read_state[current_data_item]
+                        self.read_state[current_data_item] = new_value
                         self.btn_commit.setEnabled(True)
 
             print("Log disk write: ", self.db.disk_log)
