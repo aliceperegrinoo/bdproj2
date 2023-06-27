@@ -35,7 +35,7 @@ class UndoRedoRecovery:
         T.steps.append('read_item')
         return log
 
-    def RM_Write(self, T, data_item, new_value):
+    def RM_Write(self, T, data_item, new_value, att_cache=True):
         if T not in self.db.active_transactions:
             self.db.add_active_transactions_list(T)
 
@@ -81,7 +81,8 @@ class UndoRedoRecovery:
 
         T.steps.append('write_item')
         log = f'write_item, T{T.id}, {data_item}, {old_value}, {new_value}'
-        self.db.att_cache_log(log)
+        if att_cache == True:
+            self.db.att_cache_log(log)
         return log
     
     def RM_Commit(self, T, type='default'):
@@ -126,27 +127,35 @@ class UndoRedoRecovery:
     
     def _redo(self, T):
         redo_updates = []
-        filtered_logs = [log for log in self.db.disk_log if f'T{T.id}' == log.split(', ')[1]]
-        for log in filtered_logs:
-            step = log.split(', ')[0]
-            if step == 'write_item':
-                new_value = log.split(', ')[-1]
-                data_item = log.split(', ')[-3]
-                self.RM_Write(T, data_item, new_value)
-                redo_updates.append((data_item, new_value))
+        for di in T.data_item:
+            filtered_logs = [log for log in self.db.disk_log if f'T{T.id}' == log.split(', ')[1] \
+                                and not log.startswith('start') \
+                                    and log.split(', ')[2] == di]
+            for log in filtered_logs:
+                step = log.split(', ')[0]
+                if step == 'write_item':
+                    new_value = log.split(', ')[-1]
+                    data_item = log.split(', ')[-3]
+                    self.RM_Write(T, data_item, new_value, att_cache=False)
+                    redo_updates.append((data_item, new_value))
 
         return redo_updates
     
     def _undo(self, T):
         undo_updates = []
-        filtered_logs = [log for log in self.db.disk_log if f'T{T.id}' == log.split(', ')[1]]
-        for log in reversed(filtered_logs):
-            step = log.split(', ')[0]
-            if step == 'write_item':
-                old_value = log.split(', ')[-2]
-                data_item = log.split(', ')[-3]
-                self.RM_Write(T, data_item, old_value)
-                undo_updates.append((data_item, old_value))
+        for di in T.data_item:
+            filtered_logs = [log for log in self.db.disk_log if f'T{T.id}' == log.split(', ')[1] \
+                              and not log.startswith('start') \
+                                and not log.startswith('abort') \
+                                     and not log.startswith('end') \
+                                          and not log.startswith('commit') \
+                                  and log.split(', ')[2] == di]
+            for log in reversed(filtered_logs):
+                step = log.split(', ')[0]
+                if step == 'write_item':
+                    old_value = log.split(', ')[-2]
+                    self.RM_Write(T, di, old_value, att_cache=False)
+                    undo_updates.append((di, old_value))
 
         return undo_updates
 

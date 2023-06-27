@@ -191,7 +191,8 @@ class RecoveryInterface(QMainWindow):
         else:
             self.transaction_id += 1
             data_item = str(self.combobox_dataitem.currentText())
-            T = Transaction(self.db, self.transaction_id, data_item, steps=[])
+            T = Transaction(self.db, self.transaction_id, data_item=[], steps=[])
+            T.data_item.append(data_item)
             self.update_db_table_on_checkpoint(db=self.updated_state)
             self.transactions.append(T)
             self.update_dropdown_abort()
@@ -215,6 +216,8 @@ class RecoveryInterface(QMainWindow):
 
         else:
             data_item = str(self.combobox_dataitem.currentText())
+            if data_item not in T.data_item:
+                T.data_item.append(data_item)
             log = self.recovery_mode.RM_Read(T, data_item, self.read_state)
 
             self.log_memory_display.append(log)
@@ -226,19 +229,25 @@ class RecoveryInterface(QMainWindow):
         current_object_transaction = [T for T in self.transactions if f'T{T.id}' == current_transaction]
         T = current_object_transaction[0]
 
-        data_item = T.data_item
+        current_data_item = str(self.combobox_dataitem.currentText())
+
+        if current_data_item not in T.data_item:
+            T.data_item.append(current_data_item)
+
         read_log = [log for log in self.db.cache_log if \
                     log.split(', ')[0] == 'read_item' and \
-                        log.split(', ')[1] == f'T{T.id}' and log.split(', ')[2] == data_item]
+                        log.split(', ')[1] == f'T{T.id}' and log.split(', ')[2] == current_data_item]
         
+        print("Read log: ", read_log)
         if len(read_log) > 0:
             if self.recovery_mode.name == 'UndoRedoRecovery':
                 if 'end' in T.steps:
                     self.readwrite_warning.exec_()
                 else: 
                     data_item = str(self.combobox_dataitem.currentText())
+                    print("Data item: ", data_item)
                     new_value = str(self.textbox.text())
-                    log = self.recovery_mode.RM_Write(T, data_item, new_value)
+                    log = self.recovery_mode.RM_Write(T, current_data_item, new_value)
                     self.read_state[data_item] = new_value
                     print("Updated state after write = ", self.updated_state)
 
@@ -248,14 +257,14 @@ class RecoveryInterface(QMainWindow):
                 if 'end' in T.steps:
                     self.readwrite_warning.exec_()
                 else: 
-                    data_item = str(self.combobox_dataitem.currentText())
                     new_value = str(self.textbox.text())
-                    logs = self.recovery_mode.RM_Write(T, data_item, new_value)
+                    logs = self.recovery_mode.RM_Write(T, current_data_item, new_value)
                     self.log_memory_display.append(logs[-1])
                     for log in logs:
                         self.log_disk_display.append(log)
-                        self.update_db_table(self.dict_dropdown[data_item], new_value)
-                        self.updated_state[data_item] = new_value
+                        self.update_db_table(self.dict_dropdown[current_data_item], new_value)
+                        self.updated_state[current_data_item] = new_value
+                        self.read_state[current_data_item]
                         self.btn_commit.setEnabled(True)
 
             print("Log disk write: ", self.db.disk_log)
@@ -333,10 +342,10 @@ class RecoveryInterface(QMainWindow):
                         if event == 'write_item':
                             T = [tr for tr in self.transactions if f'T{tr.id}' == str_tr]
                             T = T[0]
-                            data_item = T.data_item
-                            new_value = log.split(', ')[-1]
-                            self.update_db_table(self.dict_dropdown[data_item], new_value)
-                            self.updated_state[data_item] = new_value
+                            for di in T.data_item:
+                                new_value = log.split(', ')[-1]
+                                self.update_db_table(self.dict_dropdown[di], new_value)
+                                self.updated_state[di] = new_value
 
                         # adiciona um commit se a transação tiver sido finalizada
                         if str_tr in need_commit and event == 'end':
@@ -410,14 +419,23 @@ class RecoveryInterface(QMainWindow):
         self.read_state = self.db.data.copy()
         self.textbox.clear()
 
+        self.btn_start_transaction.setEnabled(True)
+        self.radio_read.setEnabled(True)
+        self.radio_write.setEnabled(True)
+        self.btn_checkpoint.setEnabled(True)
+        self.btn_abort.setEnabled(True)
+        self.btn_commit.setEnabled(True)
+        self.btn_finish_transaction.setEnabled(True)  
+
     def undoredo_recovery(self):
         self.recovery_mode = UndoRedoRecovery(self.db)
 
     def undonoredo_recovery(self):
         self.recovery_mode = UndoNoRedoRecovery(self.db)
 
-    def start_recovery(self):
+    def start_recovery(self): 
         results = self.recovery_mode.RM_Restart()
+
         if 'aborted' in results.keys():
             for data_item, value in results['aborted']:
                 self.update_db_table(self.dict_dropdown[data_item], value)
@@ -436,7 +454,7 @@ class RecoveryInterface(QMainWindow):
         if 'not_consolidated' in results.keys():
             for data_item, value in results['not_consolidated']:
                 self.update_db_table(self.dict_dropdown[data_item], value)
-                self.updated_state[data_item] = value
+                self.updated_state[data_item] = value   
 
         self.btn_start_transaction.setEnabled(True)
         self.radio_read.setEnabled(True)
@@ -444,7 +462,7 @@ class RecoveryInterface(QMainWindow):
         self.btn_checkpoint.setEnabled(True)
         self.btn_abort.setEnabled(True)
         self.btn_commit.setEnabled(True)
-        self.btn_finish_transaction.setEnabled(True)             
+        self.btn_finish_transaction.setEnabled(True)         
 
     def update_dropdown_read(self):
         self.combobox_read.clear()
