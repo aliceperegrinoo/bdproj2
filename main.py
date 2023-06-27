@@ -203,8 +203,8 @@ class RecoveryInterface(QMainWindow):
 
             self.log_memory_display.append(log)
 
-        if self.recovery_mode.name == 'UndoNoRedoRecovery':
-            self.btn_commit.setEnabled(False)
+            if self.recovery_mode.name == 'UndoNoRedoRecovery':
+                self.btn_commit.setEnabled(False)
         
     def perform_read(self):
         current_transaction = str(self.combobox_read.currentText())
