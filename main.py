@@ -196,6 +196,9 @@ class RecoveryInterface(QMainWindow):
             log = self.recovery_mode.start_transaction(T)
 
             self.log_memory_display.append(log)
+
+        if self.recovery_mode.name == 'UndoNoRedoRecovery':
+            self.btn_commit.setEnabled(False)
         
     def perform_read(self):
         current_transaction = str(self.combobox_read.currentText())
@@ -248,6 +251,7 @@ class RecoveryInterface(QMainWindow):
                         self.log_disk_display.append(log)
                         self.update_db_table(self.dict_dropdown[data_item], new_value)
                         self.updated_state[data_item] = new_value
+                        self.btn_commit.setEnabled(True)
 
             print("Log disk write: ", self.db.disk_log)
         else:
@@ -286,6 +290,14 @@ class RecoveryInterface(QMainWindow):
         self.log_memory_display.clear()
         self.db.cache_log = []
         self.return_to_checkpoint_state()
+
+        self.btn_start_transaction.setEnabled(False)
+        self.radio_read.setEnabled(False)
+        self.radio_write.setEnabled(False)
+        self.btn_checkpoint.setEnabled(False)
+        self.btn_abort.setEnabled(False)
+        self.btn_commit.setEnabled(False)
+        self.btn_finish_transaction.setEnabled(False)
 
     def perform_checkpoint(self): 
         active_transactions = [f'T{t.id}' for t in self.db.active_transactions]
@@ -351,7 +363,7 @@ class RecoveryInterface(QMainWindow):
         current_transaction = str(self.combobox_abort.currentText())
         current_object_transaction = [T for T in self.transactions if f'T{T.id}' == current_transaction] 
         T = current_object_transaction[0]
-        if 'commit' not in T.steps:
+        if 'commit' in T.steps:
             self.no_aborted_commit_warning.exec_()
         else:
             logs = self.recovery_mode.RM_Abort(T)
@@ -386,6 +398,7 @@ class RecoveryInterface(QMainWindow):
         self.transaction_id = 0
         self.recovery_mode = ''
         self.updated_state = self.db.data.copy()
+        self.read_state = self.db.data.copy()
         self.textbox.clear()
 
     def undoredo_recovery(self):
@@ -396,7 +409,6 @@ class RecoveryInterface(QMainWindow):
 
     def start_recovery(self):
         results = self.recovery_mode.RM_Restart()
-        print(results)
         if 'aborted' in results.keys():
             for data_item, value in results['aborted']:
                 self.update_db_table(self.dict_dropdown[data_item], value)
@@ -415,7 +427,15 @@ class RecoveryInterface(QMainWindow):
         if 'not_consolidated' in results.keys():
             for data_item, value in results['not_consolidated']:
                 self.update_db_table(self.dict_dropdown[data_item], value)
-                self.updated_state[data_item] = value                
+                self.updated_state[data_item] = value
+
+        self.btn_start_transaction.setEnabled(True)
+        self.radio_read.setEnabled(True)
+        self.radio_write.setEnabled(True)
+        self.btn_checkpoint.setEnabled(True)
+        self.btn_abort.setEnabled(True)
+        self.btn_commit.setEnabled(True)
+        self.btn_finish_transaction.setEnabled(True)             
 
     def update_dropdown_read(self):
         self.combobox_read.clear()
