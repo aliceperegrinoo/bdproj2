@@ -130,7 +130,11 @@ class UndoRedoRecovery:
         for di in T.data_item:
             filtered_logs = [log for log in self.db.disk_log if f'T{T.id}' == log.split(', ')[1] \
                                 and not log.startswith('start') \
-                                    and log.split(', ')[2] == di]
+                                    and not log.startswith('start') \
+                                        and not log.startswith('abort') \
+                                            and not log.startswith('end') \
+                                                and not log.startswith('commit') \
+                                                    and log.split(', ')[2] == di]
             for log in filtered_logs:
                 step = log.split(', ')[0]
                 if step == 'write_item':
@@ -149,7 +153,7 @@ class UndoRedoRecovery:
                                 and not log.startswith('abort') \
                                      and not log.startswith('end') \
                                           and not log.startswith('commit') \
-                                  and log.split(', ')[2] == di]
+                                            and log.split(', ')[2] == di]
             for log in reversed(filtered_logs):
                 step = log.split(', ')[0]
                 if step == 'write_item':

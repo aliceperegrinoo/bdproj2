@@ -134,6 +134,10 @@ class RecoveryInterface(QMainWindow):
         self.abort_warning.setText("Não é possível terminar uma transação abortada.")
         self.abort_warning.setIcon(QMessageBox.Warning)
 
+        self.no_double_commit_warning = QMessageBox()
+        self.no_double_commit_warning.setWindowTitle("Processo não permitido")
+        self.no_double_commit_warning.setText("Não é possível commitar uma transação já commitada.")
+
         # Layout
         layout = QGridLayout()
         layout.addWidget(self.recovery_label, 0, 0)
@@ -289,16 +293,19 @@ class RecoveryInterface(QMainWindow):
         current_transaction = str(self.combobox_commit.currentText())
         current_object_transaction = [T for T in self.transactions if f'T{T.id}' == current_transaction]
         T = current_object_transaction[0]
-        if 'end' in T.steps:
-            logs = self.recovery_mode.RM_Commit(T, type='default')
-            for l in logs:
-                self.log_disk_display.append(l)
-                if l.split(', ')[0] == 'write_item':
-                    data_item = T.data_item
-                    new_value = l.split(', ')[-1]
-                    self.update_db_table(self.dict_dropdown[data_item], new_value)
+        if 'commit' in T.steps:
+            self.no_double_commit_warning.exec_()
         else:
-            self.commit_warning.exec_()
+            if 'end' in T.steps:
+                logs = self.recovery_mode.RM_Commit(T, type='default')
+                for l in logs:
+                    self.log_disk_display.append(l)
+                    if l.split(', ')[0] == 'write_item':
+                        data_item = l.split(', ')[2]
+                        new_value = l.split(', ')[-1]
+                        self.update_db_table(self.dict_dropdown[data_item], new_value)
+            else:
+                self.commit_warning.exec_()
 
         print("Log disk commit: ", self.db.disk_log)
 
