@@ -29,8 +29,8 @@ class UndoNoRedoRecovery:
         T.steps.append('end')
         return log
 
-    def RM_Read(self, T, data_item):
-        log = f'read_item, T{T.id}, {data_item}, {self.db.data[data_item]}'
+    def RM_Read(self, T, data_item, db):
+        log = f'read_item, T{T.id}, {data_item}, {db[data_item]}'
         self.db.att_cache_log(log)
         T.steps.append('read_item')
         return log
@@ -40,12 +40,50 @@ class UndoNoRedoRecovery:
         if T not in self.db.active_transactions:
             self.db.add_active_transactions_list(T)
 
+        if T.steps[-1] == 'read_item':
+            if len(self.db.cache_log) > 0: 
+                read_log = [log for log in self.db.cache_log if \
+                            log.split(', ')[1] == f'T{T.id}' \
+                                and log.split(', ')[0] == 'read_item']
+            else:
+                print('entrou no log disk')
+                read_log = [log for log in self.db.disk_log if \
+                            log.split(', ')[1] == f'T{T.id}' \
+                                and log.split(', ')[0] == 'read_item']
+            
+            read_log = set(read_log)
+            read_log = list(read_log)
+            old_value = read_log[0].split(', ')[-1]
+
+        elif T.steps[-1] == 'write_item':
+            if len(self.db.cache_log) > 0: 
+                write_logs = [log for log in self.db.cache_log if \
+                            log.split(', ')[1] == f'T{T.id}' \
+                                and log.split(', ')[0] == 'write_item']
+            else:
+                write_logs = [log for log in self.db.disk_log if \
+                            log.split(', ')[1] == f'T{T.id}' \
+                                and log.split(', ')[0] == 'write_item']
+
+            last_write_log = write_logs[-1]
+            old_value = last_write_log.split(', ')[-1]
+
+        else: 
+            if len(self.db.cache_log) > 0: 
+                write_logs = [log for log in self.db.cache_log if  \
+                                log.split(', ')[0] == 'write_item' and \
+                                    log.split(', ')[2] == data_item]
+            else:
+                write_logs = [log for log in self.db.disk_log if \
+                            log.split(', ')[0] == 'write_item' \
+                                and log.split(', ')[2] == data_item]
+
+            last_write_log = write_logs[-1]
+            old_value = last_write_log.split(', ')[-1]
+
         T.steps.append('write_item')
-        old_value = self.db.data[data_item]
         logs_to_sync = self.db.sync_cache_and_disk(T)
-        print(logs_to_sync)
         logs_to_sync = self.db.check_for_duplicates_disk_log(logs_to_sync)
-        print(logs_to_sync)
         if len(logs_to_sync) > 0:
             logs.extend(logs_to_sync)
         log = f'write_item, T{T.id}, {data_item}, {old_value}, {new_value}'
@@ -112,7 +150,7 @@ class UndoNoRedoRecovery:
         dict_results = {}
         not_consolidated = set(self.db.active_transactions).union(set(self.db.aborted_transactions)) - set(self.db.consolidated_transactions)
         not_consolidated = list(not_consolidated)
-
+        print(not_consolidated)
         if len(not_consolidated) > 0:
             for T in not_consolidated:
                 undo_not_consolidated_transactions = self._undo(T)

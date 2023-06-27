@@ -23,6 +23,7 @@ class RecoveryInterface(QMainWindow):
         self.transactions = []
         self.initial_state = self.db.data.copy()
         self.updated_state = self.db.data.copy()
+        self.read_state = self.db.data.copy()
 
         # Botões de operações
         self.btn_start_transaction = QPushButton("Iniciar Transação", self)
@@ -123,6 +124,11 @@ class RecoveryInterface(QMainWindow):
         self.no_aborted_commit_warning.setText("Não é permitido abortar uma transação commitada.")
         self.no_aborted_commit_warning.setIcon(QMessageBox.Warning)
 
+        self.checkpoint_warning = QMessageBox()
+        self.checkpoint_warning.setWindowTitle("Processo não permitido")
+        self.checkpoint_warning.setText("Não há nenhuma atualização a fazer no checkpoint.")
+        self.checkpoint_warning.setIcon(QMessageBox.Warning)
+
         # Layout
         layout = QGridLayout()
         layout.addWidget(self.recovery_label, 0, 0)
@@ -201,7 +207,7 @@ class RecoveryInterface(QMainWindow):
 
         else:
             data_item = str(self.combobox_dataitem.currentText())
-            log = self.recovery_mode.RM_Read(T, data_item)
+            log = self.recovery_mode.RM_Read(T, data_item, self.read_state)
 
             self.log_memory_display.append(log)
 
@@ -213,7 +219,9 @@ class RecoveryInterface(QMainWindow):
         T = current_object_transaction[0]
 
         data_item = T.data_item
-        read_log = [log for log in self.db.cache_log if log.split(', ')[0] == 'read_item' and log.split(', ')[1] == f'T{T.id}' and log.split(', ')[2] == data_item]
+        read_log = [log for log in self.db.cache_log if \
+                    log.split(', ')[0] == 'read_item' and \
+                        log.split(', ')[1] == f'T{T.id}' and log.split(', ')[2] == data_item]
         
         if len(read_log) > 0:
             if self.recovery_mode.name == 'UndoRedoRecovery':
@@ -223,6 +231,8 @@ class RecoveryInterface(QMainWindow):
                     data_item = str(self.combobox_dataitem.currentText())
                     new_value = str(self.textbox.text())
                     log = self.recovery_mode.RM_Write(T, data_item, new_value)
+                    self.read_state[data_item] = new_value
+                    print("Updated state after write = ", self.updated_state)
 
                     self.log_memory_display.append(log)
 
@@ -279,51 +289,53 @@ class RecoveryInterface(QMainWindow):
 
     def perform_checkpoint(self): 
         active_transactions = [f'T{t.id}' for t in self.db.active_transactions]
+        if (len(self.db.disk_log) > 0) and (self.db.disk_log[-1].startswith('checkpoint')) and (all(self.db.cache_log) in self.db.disk_log):
+            self.checkpoint_warning.exec_()
 
-        if self.recovery_mode.name == 'UndoRedoRecovery':
-            need_commit = []
-            all_transactions = [f'T{tr.id}' for tr in self.transactions]
-            for tr in all_transactions:
-                if self._check_if_commit_is_needed(tr) == True:
-                    need_commit.append(tr)
+        else:
+            if self.recovery_mode.name == 'UndoRedoRecovery':
+                need_commit = []
+                all_transactions = [f'T{tr.id}' for tr in self.transactions]
+                for tr in all_transactions:
+                    if self._check_if_commit_is_needed(tr) == True:
+                        need_commit.append(tr)
 
-            add_to_disk = self.db.sync_cache_and_disk_on_checkpoint()
-            print("Add to disk: ", add_to_disk)
+                add_to_disk = self.db.sync_cache_and_disk_on_checkpoint()
+                print("Add to disk: ", add_to_disk)
 
-            if len(add_to_disk) > 0:
-                for log in add_to_disk:
-                    str_tr = log.split(', ')[1]
-                    event = log.split(', ')[0]
+                if len(add_to_disk) > 0:
+                    for log in add_to_disk:
+                        str_tr = log.split(', ')[1]
+                        event = log.split(', ')[0]
 
-                    # atualiza a base de dados se tiver algum write_item
-                    if event == 'write_item':
-                        T = [tr for tr in self.transactions if f'T{tr.id}' == str_tr]
-                        T = T[0]
-                        data_item = T.data_item
-                        new_value = log.split(', ')[-1]
-                        self.update_db_table(self.dict_dropdown[data_item], new_value)
-                        self.updated_state[data_item] = new_value
+                        # atualiza a base de dados se tiver algum write_item
+                        if event == 'write_item':
+                            T = [tr for tr in self.transactions if f'T{tr.id}' == str_tr]
+                            T = T[0]
+                            data_item = T.data_item
+                            new_value = log.split(', ')[-1]
+                            self.update_db_table(self.dict_dropdown[data_item], new_value)
+                            self.updated_state[data_item] = new_value
 
-                    # adiciona um commit se a transação tiver sido finalizada
-                    if str_tr in need_commit and event == 'end':
-                        T = [tr for tr in self.transactions if f'T{tr.id}' == str_tr]
-                        T = T[0]
-                        self.db.att_disk_log(log)
-                        self.log_disk_display.append(log)
-                        commit_log = self.recovery_mode.RM_Commit(T, type='simplified')
-                        self.db.att_disk_log(commit_log)
-                        self.log_disk_display.append(commit_log)
-                    else:
-                        self.db.att_disk_log(log)
-                        self.log_disk_display.append(log)
+                        # adiciona um commit se a transação tiver sido finalizada
+                        if str_tr in need_commit and event == 'end':
+                            T = [tr for tr in self.transactions if f'T{tr.id}' == str_tr]
+                            T = T[0]
+                            self.db.att_disk_log(log)
+                            self.log_disk_display.append(log)
+                            commit_log = self.recovery_mode.RM_Commit(T, type='simplified')
+                            self.db.att_disk_log(commit_log)
+                            self.log_disk_display.append(commit_log)
+                        else:
+                            self.db.att_disk_log(log)
+                            self.log_disk_display.append(log)
 
-            self.db.att_disk_log(f'checkpoint, {active_transactions}')
-            self.log_disk_display.append(f'checkpoint, {active_transactions}')
+                self.db.att_disk_log(f'checkpoint, {active_transactions}')
+                self.log_disk_display.append(f'checkpoint, {active_transactions}')
 
-        elif self.recovery_mode.name == 'UndoNoRedoRecovery':
-                    
-            self.db.att_disk_log(f'checkpoint, {active_transactions}')
-            self.log_disk_display.append(f'checkpoint, {active_transactions}')
+            elif self.recovery_mode.name == 'UndoNoRedoRecovery':
+                self.db.att_disk_log(f'checkpoint, {active_transactions}')
+                self.log_disk_display.append(f'checkpoint, {active_transactions}') 
 
         print("Log disk checkpoint: ", self.db.disk_log)
 
@@ -374,6 +386,7 @@ class RecoveryInterface(QMainWindow):
         self.transaction_id = 0
         self.recovery_mode = ''
         self.updated_state = self.db.data.copy()
+        self.textbox.clear()
 
     def undoredo_recovery(self):
         self.recovery_mode = UndoRedoRecovery(self.db)
@@ -383,21 +396,24 @@ class RecoveryInterface(QMainWindow):
 
     def start_recovery(self):
         results = self.recovery_mode.RM_Restart()
+        print(results)
         if 'aborted' in results.keys():
             for data_item, value in results['aborted']:
-                print(data_item, value)
                 self.update_db_table(self.dict_dropdown[data_item], value)
                 self.updated_state[data_item] = value
 
         if 'active' in results.keys():
             for data_item, value in results['active']:
-                print(data_item, value)
                 self.update_db_table(self.dict_dropdown[data_item], value)
                 self.updated_state[data_item] = value
 
         if 'consolidated' in results.keys():
-            print(data_item, value)
             for data_item, value in results['consolidated']:
+                self.update_db_table(self.dict_dropdown[data_item], value)
+                self.updated_state[data_item] = value         
+
+        if 'not_consolidated' in results.keys():
+            for data_item, value in results['not_consolidated']:
                 self.update_db_table(self.dict_dropdown[data_item], value)
                 self.updated_state[data_item] = value                
 
@@ -444,11 +460,25 @@ class RecoveryInterface(QMainWindow):
     def return_to_checkpoint_state(self):
         log_checkpoint = [log for log in self.db.disk_log if log.startswith("checkpoint")]
         if len(log_checkpoint) == 0:
-            self.update_db_table_on_checkpoint(db=self.db.data)
-        if len(log_checkpoint) > 0:
-            self.update_db_table_on_checkpoint(db=self.updated_state)
+            self.update_db_table_on_checkpoint(db=self.initial_state)
 
-        return
+        elif len(log_checkpoint) > 0:
+            actives_and_consolidateds = self.db.active_transactions + self.db.consolidated_transactions
+            for T in actives_and_consolidateds:
+                list_transaction_logs = [log for log in self.db.disk_log if log.split(', ')[1] == f'T{T.id}' or log.startswith('checkpoint')]
+                idx_checkpoints = [i for i, log in enumerate(list_transaction_logs) if log.startswith("checkpoint")]
+                idx_last_checkpoint = idx_checkpoints[-1]
+
+                list_write_transactions_before_checkpoint = [log for log in list_transaction_logs[:idx_last_checkpoint] if \
+                                                                    not log.startswith('checkpoint') and \
+                                                                        log.split(', ')[0] == 'write_item']
+                for log in list_write_transactions_before_checkpoint:
+                    print(log)
+                    new_value = log.split(', ')[-1]
+                    data_item = log.split(', ')[2]  
+                    self.updated_state[data_item] = new_value  
+                    self.update_db_table_on_checkpoint(db=self.updated_state)
+                    self.update_db_table(self.dict_dropdown[data_item], new_value)
 
 if __name__ == "__main__":
     app = QApplication(sys.argv)

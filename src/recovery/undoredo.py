@@ -29,8 +29,8 @@ class UndoRedoRecovery:
         T.steps.append('end')
         return log
 
-    def RM_Read(self, T, data_item):
-        log = f'read_item, T{T.id}, {data_item}, {self.db.data[data_item]}'
+    def RM_Read(self, T, data_item, db):
+        log = f'read_item, T{T.id}, {data_item}, {db[data_item]}'
         self.db.att_cache_log(log)
         T.steps.append('read_item')
         return log
@@ -39,8 +39,47 @@ class UndoRedoRecovery:
         if T not in self.db.active_transactions:
             self.db.add_active_transactions_list(T)
 
+        # Puxa todos os logs do tipo "read_item" referentes a um "data_item" específico
+        if T.steps[-1] == 'read_item':
+            if len(self.db.cache_log) > 0: 
+                read_logs = [log for log in self.db.cache_log if \
+                                 log.split(', ')[0] == 'read_item' \
+                                    and log.split(', ')[2] == data_item]
+            else:
+                read_logs = [log for log in self.db.disk_log if \
+                             log.split(', ')[0] == 'read_item' \
+                                and log.split(', ')[2] == data_item]
+            
+            old_value = read_logs[-1].split(', ')[-1]
+
+        # Puxa todos os logs do tipo "write_item" referentes a um "data_item" específico
+        elif T.steps[-1] == 'write_item':
+            if len(self.db.cache_log) > 0: 
+                write_logs = [log for log in self.db.cache_log if  \
+                                 log.split(', ')[0] == 'write_item' and \
+                                    log.split(', ')[2] == data_item]
+            else:
+                write_logs = [log for log in self.db.disk_log if \
+                             log.split(', ')[0] == 'write_item' \
+                                and log.split(', ')[2] == data_item]
+
+            last_write_log = write_logs[-1]
+            old_value = last_write_log.split(', ')[-1]
+
+        else: 
+            if len(self.db.cache_log) > 0: 
+                write_logs = [log for log in self.db.cache_log if  \
+                                log.split(', ')[0] == 'write_item' and \
+                                    log.split(', ')[2] == data_item]
+            else:
+                write_logs = [log for log in self.db.disk_log if \
+                            log.split(', ')[0] == 'write_item' \
+                                and log.split(', ')[2] == data_item]
+
+            last_write_log = write_logs[-1]
+            old_value = last_write_log.split(', ')[-1]
+
         T.steps.append('write_item')
-        old_value = self.db.data[data_item]
         log = f'write_item, T{T.id}, {data_item}, {old_value}, {new_value}'
         self.db.att_cache_log(log)
         return log
