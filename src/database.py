@@ -20,6 +20,7 @@ class Database:
 
     def sync_cache_and_disk_on_checkpoint(self):
         add_to_disk = []
+        print("Disk and Cache log on checkpoint sync", self.cache_log, self.disk_log)
         for cache in self.cache_log:
             if cache not in self.disk_log:
                 add_to_disk.append(cache)

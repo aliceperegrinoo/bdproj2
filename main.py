@@ -43,6 +43,9 @@ class RecoveryInterface(QMainWindow):
         self.radio_undo_no_redo = QRadioButton("UNDO/NO-REDO", self)
         self.radio_undo_redo = QRadioButton("UNDO/REDO", self)
 
+        # botão de recuperar desabilitado até que ocorra a falha
+        self.btn_recover.setEnabled(False)
+
         # Titulo algoritmo recuperação
         self.recovery_label = QLabel("Algoritmo de recuperação")
         self.recovery_label.setContentsMargins(0, 0, 0, 0)
@@ -312,7 +315,7 @@ class RecoveryInterface(QMainWindow):
     def perform_fail(self):
         self.log_memory_display.clear()
         self.db.cache_log = []
-        self.return_to_checkpoint_state()
+        # self.return_to_checkpoint_state()
 
         self.btn_start_transaction.setEnabled(False)
         self.radio_read.setEnabled(False)
@@ -321,9 +324,10 @@ class RecoveryInterface(QMainWindow):
         self.btn_abort.setEnabled(False)
         self.btn_commit.setEnabled(False)
         self.btn_finish_transaction.setEnabled(False)
+        self.btn_recover.setEnabled(True)
 
     def perform_checkpoint(self): 
-        active_transactions = [f'T{t.id}' for t in self.db.active_transactions]
+
         if (len(self.db.disk_log) > 0) and (self.db.disk_log[-1].startswith('checkpoint')) and (all(self.db.cache_log) in self.db.disk_log):
             self.checkpoint_warning.exec_()
 
@@ -365,16 +369,16 @@ class RecoveryInterface(QMainWindow):
                             self.db.att_disk_log(log)
                             self.log_disk_display.append(log)
 
-                self.db.att_disk_log(f'checkpoint, {active_transactions}')
-                self.log_disk_display.append(f'checkpoint, {active_transactions}')
+                self.db.att_disk_log(f'checkpoint')
+                self.log_disk_display.append(f'checkpoint')
 
             elif self.recovery_mode.name == 'UndoNoRedoRecovery':
-                for T in self.transactions:
-                    if 'abort' in T.steps:
-                        abort_transaction = [log for log in self.db.cache_log if log.split(', ')[0].startswith('aborted')]
-                        self.db.att_disk_log(abort_transaction)
-                self.db.att_disk_log(f'checkpoint, {active_transactions}')
-                self.log_disk_display.append(f'checkpoint, {active_transactions}') 
+                add_to_disk = self.db.sync_cache_and_disk_on_checkpoint()
+                for log in add_to_disk:
+                    self.db.att_disk_log(log)
+                    self.log_disk_display.append(log)
+                self.db.att_disk_log(f'checkpoint')
+                self.log_disk_display.append(f'checkpoint') 
 
         print("Log disk checkpoint: ", self.db.disk_log)
 
@@ -390,6 +394,9 @@ class RecoveryInterface(QMainWindow):
         current_transaction = str(self.combobox_abort.currentText())
         current_object_transaction = [T for T in self.transactions if f'T{T.id}' == current_transaction] 
         T = current_object_transaction[0]
+
+        current_data_item = str(self.combobox_dataitem.currentText())
+
         if 'commit' in T.steps:
             self.no_aborted_commit_warning.exec_()
         else:
@@ -398,12 +405,12 @@ class RecoveryInterface(QMainWindow):
                 self.log_memory_display.append(log)
                 # self.log_disk_display.append(log)
 
-            # if 'write_item' in T.steps:
-            #     filtered_logs = [log for log in logs if log.split(', ')[0] == 'write_item' and \
-            #                     log.split(', ')[1] == f'T{T.id}']
-            #     data_item = T.data_item
-            #     new_value = filtered_logs[0].split(', ')[-1]
-            #     self.update_db_table(self.dict_dropdown[data_item], new_value)
+            if 'write_item' in T.steps:
+                filtered_logs = [log for log in logs if log.split(', ')[0] == 'write_item' and \
+                                log.split(', ')[1] == f'T{T.id}']
+                data_item = current_data_item
+                new_value = filtered_logs[0].split(', ')[-1]
+                self.update_db_table(self.dict_dropdown[data_item], new_value)
 
         print(self.db.disk_log)
 
@@ -514,6 +521,7 @@ class RecoveryInterface(QMainWindow):
             self.db_table.setItem(i, 1, item)
 
     def return_to_checkpoint_state(self):
+        len(self.db.disk_log)
         log_checkpoint = [log for log in self.db.disk_log if log.startswith("checkpoint")]
         if len(log_checkpoint) == 0:
             self.update_db_table_on_checkpoint(db=self.initial_state)
